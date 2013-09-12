@@ -1,0 +1,19 @@
+{
+  "name": "modella-mysql",
+  "description": "MySQL plugin for Modella.",
+  "version": "1.0.0",
+  "author": "Alex Mingoia <talk@alexmingoia.com>",
+  "dependencies": {
+    "mysql": "2.0.0-alpha9"
+  },
+  "devDependencies": {
+    "mocha": "1.12.1",
+    "modella": "0.1.2",
+    "should": "1.2.2",
+    "supertest": "0.7.1"
+  },
+  "engines": {
+    "node": ">= 0.10"
+  },
+  "license": "MIT"
+}
