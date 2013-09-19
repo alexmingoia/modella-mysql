@@ -1,16 +1,24 @@
 {
   "name": "modella-mysql",
-  "description": "MySQL plugin for Modella.",
-  "version": "1.0.0",
+  "description": "MySQL storage plugin and persistence layer for Modella.",
+  "version": "0.1.0",
+  "keywords": ["sql", "mysql", "modella", "plugin"],
   "author": "Alex Mingoia <talk@alexmingoia.com>",
   "dependencies": {
+    "extend": "1.2.1",
+    "lingo": "0.0.5",
+    "mongo-sql": "2.1.9",
     "mysql": "2.0.0-alpha9"
   },
   "devDependencies": {
     "mocha": "1.12.1",
-    "modella": "0.1.2",
+    "modella": "git://github.com/alexmingoia/modella.git",
     "should": "1.2.2",
     "supertest": "0.7.1"
+  },
+  "main": "./mysql.js",
+  "scripts": {
+    "test": "NODE_ENV=test node_modules/mocha/bin/mocha --bail --reporter spec $(find test -name \"*.js\")"
   },
   "engines": {
     "node": ">= 0.10"

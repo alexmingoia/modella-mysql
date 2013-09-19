@@ -1,7 +1,6 @@
 # modella-mysql
 
-Plugin for [Modella](https://github.com/modella/modella) providing a
-persistence layer to MySQL.
+MySQL persistence layer for [Modella](https://github.com/modella/modella).
 
 ## Installation
 
@@ -12,12 +11,15 @@ npm install --global modella-mysql
 ## Example
 
 ```javascript
-var model = require('modella');
+var modella = require('modella');
 var mysql = require('modella-mysql');
 
-var User = model('User');
+var User = modella('User');
 
-User.use(mysql);
+User.use(mysql({
+  database: 'mydb',
+  user: 'root'
+});
 ```
 
 ## API
@@ -26,17 +28,40 @@ User.use(mysql);
 
 Get all models.
 
-### Model.find([query], fn)
+### Model.find([id|query], fn)
 
 Find a model.
 
-### model.save([options], fn)
+## Custom table / field names
 
-Save the model instance.
+Custom table names are provided by the `Model.tableName` attribute. Be sure to
+declare it before using the plugin. For example:
 
-### model.destroy([options], fn)
+```javascript
+var User = modella('User');
 
-Destroy/remove the model instance.
+User.tableName = 'people';
+
+User.(mysql(settings));
+```
+
+Custom field names are provided by a `columnName` property in the attribute
+definition. For example:
+
+```javascript
+User
+  .attr('id')
+  .attr('firstName', {
+    type: String,
+    length: 255,
+    columnName: 'first_name'
+  })
+  .attr('lastName', {
+    type: String,
+    length: 255,
+    columnName: 'last_name'
+  });
+```
 
 ## Tests
 
