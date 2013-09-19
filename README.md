@@ -26,13 +26,34 @@ User.use(mysql({
 
 ## API
 
-### Model.all([query], fn)
+### Model.all(query, callback)
 
-Get all models.
+Get all models using given `query`.
 
-### Model.find([id|query], fn)
+```javascript
+User.find({ where: { city: 'San Francisco' }}, function(err, users) {
+  // ...
+});
+```
 
-Find a model.
+### Model.find(id|query, callback)
+
+Find a model by given `id` or `query`.
+
+```javascript
+User.find(5, function(err, user) {
+  user.name(); // => Alex
+});
+
+User.find({ where: { name: 'Alex' }}, function(err, user) {
+  user.name(); // => Alex
+});
+```
+
+### Queries
+
+The query is a subset of [mongo-sql](https://github.com/goodybag/mongo-sql).
+The `type`, `columns`, and `table` properties are handled by modella-mysql.
 
 ### Custom table / field names
 
