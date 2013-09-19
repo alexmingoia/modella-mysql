@@ -14,7 +14,7 @@
 var extend = require('extend');
 var lingo = require('lingo').en;
 var mysql = require('mysql');
-var sql = require('mongo-sql').sql;
+var build = require('mongo-sql').sql;
 
 /**
  * Initialize a new MySQL plugin with given `settings`.
@@ -37,12 +37,62 @@ module.exports = function(settings) {
     if (!Model.tableName) {
       Model.tableName = lingo.pluralize(Model.modelName.toLowerCase());
     }
+    Model.query = connection.query;
     extend(Model, plugin);
     return Model;
   };
 };
 
 var plugin = {};
+
+/**
+ * Find model with given `id` or `query`.
+ *
+ * @param {Number|Object} id
+ * @param {Function(err, model)} callback
+ * @api public
+ */
+
+plugin.find = plugin.get = function(id, callback) {
+  var query = typeof id == 'object' ? id : { where: { id: id } };
+  var sql = build(extend({
+    type: 'select',
+    table: this.tableName
+  }, query));
+  this.mysql.query(sql.toString(), sql.values, function(err, rows, fields) {
+    if (err) return callback(err);
+    var model;
+    if (rows && rows.length) {
+      model = new (this)(rows[0]);
+    }
+    callback(null, model);
+  }.bind(this));
+};
+
+/**
+ * Find all models with given `query`.
+ *
+ * @param {Object} query
+ * @param {Function(err, collection)} callback
+ * @api public
+ */
+
+plugin.all = function(query, callback) {
+  var sql = build(extend({
+    type: 'select',
+    table: this.tableName
+  }, query));
+  this.mysql.query(sql.toString(), sql.values, function(err, rows, fields) {
+    if (err) return callback(err);
+    var collection = [];
+    if (rows && rows.length) {
+      for (var len = rows.length, i=0; i<len; i++) {
+        collection.push(new (this)(rows[i]));
+      }
+    }
+    callback(null, collection);
+  }.bind(this));
+};
 
 /**
  * Save.
@@ -52,12 +102,12 @@ var plugin = {};
  */
 
 plugin.save = function(fn) {
-  var query = sql({
+  var sql = build({
     type: 'insert',
     table: this.model.tableName,
     values: this.toJSON()
   });
-  this.model.mysql.query(query.toString(), query.values, function(err, rows, fields) {
+  this.model.mysql.query(sql.toString(), sql.values, function(err, rows, fields) {
     if (err) return fn(err);
     this.primary(rows.insertId);
     fn(null, fields);
@@ -74,12 +124,12 @@ plugin.save = function(fn) {
 plugin.update = function(fn) {
   var body = this.toJSON();
   if (body[this.model.primaryKey]) delete body[this.model.primaryKey];
-  var query = sql({
+  var sql = build({
     type: 'update',
     table: this.model.tableName,
     values: body
   });
-  this.model.mysql.query(query.toString(), query.values, function(err, rows, fields) {
+  this.model.mysql.query(sql.toString(), sql.values, function(err, rows, fields) {
     if (err) return fn(err);
     fn(null, fields);
   }.bind(this));
@@ -93,12 +143,14 @@ plugin.update = function(fn) {
  */
 
 plugin.remove = function(fn) {
-  var query = sql({
+  var query = {
     type: 'delete',
     table: this.model.tableName,
-    values: this.toJSON()
-  });
-  this.model.mysql.query(query.toString(), query.values, function(err, rows) {
+    where: {}
+  };
+  query.where[this.model.primaryKey] = this.primary();
+  var sql = build(query);
+  this.model.mysql.query(sql.toString(), sql.values, function(err, rows) {
     if (err) return fn(err);
     fn();
   }.bind(this));

@@ -32,7 +32,7 @@ Get all models.
 
 Find a model.
 
-## Custom table / field names
+### Custom table / field names
 
 Custom table names are provided by the `Model.tableName` attribute. Be sure to
 declare it before using the plugin. For example:

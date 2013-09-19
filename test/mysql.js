@@ -61,6 +61,43 @@ describe('Model', function() {
     );
   });
 
+  describe('.all', function() {
+    it('should find all models successfully', function(done) {
+      var userA = new User({name: 'alex'});
+      var userB = new User({name: 'jeff'});
+      userA.save(function(err) {
+        if (err) return done(err);
+        userB.save(function(err) {
+          if (err) return done(err);
+          User.all(
+            { where: { $or: { id: userA.primary(), name: "jeff" }}},
+            function(err, found) {
+              if (err) return done(err);
+              should.exist(found);
+              found.should.be.an.instanceOf(Array);
+              found.pop().primary().should.equal(userB.primary());
+              done();
+            }
+          );
+        });
+      });
+    });
+  });
+
+  describe('.find', function() {
+    it('should find model by id successfully', function(done) {
+      var user = new User({name: 'alex'});
+      user.save(function(err) {
+        User.find(user.primary(), function(err, found) {
+          if (err) return done(err);
+          should.exist(found);
+          user.primary().should.equal(found.primary());
+          done();
+        });
+      });
+    });
+  });
+
   describe('#save', function() {
     it('should insert new record successfully', function(done) {
       var user = new User({name: 'alex'});
