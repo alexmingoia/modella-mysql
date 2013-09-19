@@ -3,3 +3,6 @@ node_js:
   - 0.10
   - 0.9
   - 0.8
+
+env:
+  - NODE_TEST_MYSQL_USER=travis
