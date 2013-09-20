@@ -27,10 +27,16 @@ var build = require('mongo-sql').sql;
  */
 
 module.exports = function(settings) {
+  settings.multipleStatement = true;
   var connection = mysql.createConnection(settings);
+  connection.connect(function(err) {
+    if (err) throw err;
+    connection.query('SET SESSION sql_mode=ANSI_QUOTES', [], function(err) {
+      if (err) throw err;
+    });
+  });
   return function(Model) {
     Model.mysql = connection;
-    Model.mysql.__ANSIMode;
     // Set query value escape character to `$1, $2, $3..` to conform to
     // mongo-sql's query value escape character.
     Model.mysql.config.queryFormat = plugin.queryFormat;
