@@ -86,6 +86,20 @@ User
   });
 ```
 
+### Data formatters
+
+If you need to control exactly how a data-type is determined, set the attribute
+definition's `dataFormatter` function:
+
+```javascript
+var Event = modella('Event');
+
+Event.attr('date', { dataFormatter: function(value, Event) {
+  value = Math.floor(value.getTime() / 1000);
+  return value;
+});
+```
+
 ## Tests
 
 Tests are written with [mocha](https://github.com/visionmedia/mocha) and

@@ -64,8 +64,11 @@ plugin.find = plugin.get = function(id, callback) {
     var model;
     if (rows && rows.length) {
       model = new (this)(rows[0]);
+      return callback(null, model);
     }
-    callback(null, model);
+    var error = new Error("Could not find " + id + ".");
+    error.code = error.status = 404;
+    return callback(error);
   }.bind(this));
 };
 
@@ -81,7 +84,7 @@ plugin.all = function(query, callback) {
   var sql = build(extend({
     type: 'select',
     table: this.tableName
-  }, query));
+  }, this.preprocessQuery(query)));
   this.mysql.query(sql.toString(), sql.values, function(err, rows, fields) {
     if (err) return callback(err);
     var collection = [];
@@ -105,7 +108,7 @@ plugin.save = function(fn) {
   var sql = build({
     type: 'insert',
     table: this.model.tableName,
-    values: this.toJSON()
+    values: this.model.preprocessValues(this.toJSON())
   });
   this.model.mysql.query(sql.toString(), sql.values, function(err, rows, fields) {
     if (err) return fn(err);
@@ -122,12 +125,14 @@ plugin.save = function(fn) {
  */
 
 plugin.update = function(fn) {
-  var body = this.toJSON();
-  if (body[this.model.primaryKey]) delete body[this.model.primaryKey];
+  var body = this.changed();
+  var where = {};
+  where[this.model.primaryKey] = this.primary();
   var sql = build({
     type: 'update',
     table: this.model.tableName,
-    values: body
+    where: where,
+    values: this.model.preprocessValues(body)
   });
   this.model.mysql.query(sql.toString(), sql.values, function(err, rows, fields) {
     if (err) return fn(err);
@@ -154,6 +159,63 @@ plugin.remove = function(fn) {
     if (err) return fn(err);
     fn();
   }.bind(this));
+};
+
+/**
+ * Preprocess query.
+ *
+ * @param {Object} query
+ * @return {Object}
+ * @api private
+ */
+
+plugin.preprocessQuery = function(query) {
+  var keywords = [];
+  for (var key in query) {
+    if (query.hasOwnProperty(key) && key.match(/(where|Join)$/)) {
+      keywords.push(key);
+    }
+  }
+  // If no keywords, assume where query
+  if (keywords.length == 0) {
+    query.where = {};
+    for (var param in query) {
+      if (query.hasOwnProperty(param) && !param.match(/(where|limit|order|groupBy)$/)) {
+        query.where[param] = query[param];
+        delete query[param];
+      }
+    }
+  }
+  if (query.where) {
+    if (!query.limit) query.limit = 100;
+  }
+  return query;
+};
+
+/**
+ * Preprocess values.
+ *
+ * @param {Array} values
+ * @return {Array}
+ * @api private
+ */
+
+plugin.preprocessValues = function(values) {
+  for (var key in values) {
+    if (this.attrs[key].dataFormatter) {
+      values[key] = this.attrs[key].dataFormatter(values[key], this);
+    }
+    else if (values[key] instanceof Date) {
+      values[key] = Math.floor(values[key].getTime() / 1000);
+    }
+    else if (typeof values[key] === 'object') {
+      values[key] = JSON.stringify(values[key]);
+    }
+    else if (typeof values[key] === 'boolean') {
+      values[key] = values[key] ? 1 : 'NULL';
+    }
+  }
+  return values;
 };
 
 /**
