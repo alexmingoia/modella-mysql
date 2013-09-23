@@ -202,14 +202,19 @@ plugin.preprocessQuery = function(query) {
     if (query.hasOwnProperty(key) && key.match(/(where|Join)$/)) {
       keywords.push(key);
     }
+    if (!isNaN(query[key])) {
+      query[key] = Number(query[key]);
+    }
   }
   // If no keywords, assume where query
   if (keywords.length == 0) {
     query.where = {};
     for (var param in query) {
-      if (query.hasOwnProperty(param) && !param.match(/(where|limit|order|groupBy)$/)) {
-        query.where[param] = query[param];
-        delete query[param];
+      if (query.hasOwnProperty(param)) {
+        if (!param.match(/(where|offset|limit|order|groupBy)$/)) {
+          query.where[param] = query[param];
+          delete query[param];
+        }
       }
     }
   }
