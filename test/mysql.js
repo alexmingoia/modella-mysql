@@ -61,6 +61,16 @@ describe('Model', function() {
     );
   });
 
+  afterEach(function(done) {
+    User.mysql.query(
+      'DELETE FROM `users` WHERE 1',
+      function(err) {
+        if (err) return done(err);
+        done();
+      }
+    );
+  });
+
   describe('.all', function() {
     it('should find all models successfully', function(done) {
       var userA = new User({name: 'alex'});
@@ -76,6 +86,28 @@ describe('Model', function() {
               should.exist(found);
               found.should.be.an.instanceOf(Array);
               found.pop().primary().should.equal(userB.primary());
+              done();
+            }
+          );
+        });
+      });
+    });
+  });
+
+  describe('.count', function() {
+    it('should count models successfully', function(done) {
+      var userA = new User({name: 'alex'});
+      var userB = new User({name: 'jeff'});
+      userA.save(function(err) {
+        if (err) return done(err);
+        userB.save(function(err) {
+          if (err) return done(err);
+          User.count(
+            { where: { $or: { id: userA.primary(), name: "jeff" }}},
+            function(err, found) {
+              if (err) return done(err);
+              should.exist(found);
+              found.should.equal(2);
               done();
             }
           );

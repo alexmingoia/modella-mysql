@@ -104,6 +104,27 @@ plugin.all = function(query, callback) {
 };
 
 /**
+ * Count models with given `query`.
+ *
+ * @param {Object} query
+ * @param {Function(err, count)} callback
+ * @api public
+ */
+
+plugin.count = function(query, callback) {
+  var sql = build(extend({
+    type: 'select',
+    columns: ['count(*)'],
+    table: this.tableName
+  }, this.preprocessQuery(query)));
+  this.mysql.query(sql.toString(), sql.values, function(err, rows, fields) {
+    if (err) return callback(err);
+    var count = rows[0]['count(*)'];
+    callback(null, count);
+  }.bind(this));
+};
+
+/**
  * Save.
  *
  * @param {Function(err, attrs)} fn
