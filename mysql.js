@@ -213,9 +213,6 @@ plugin.preprocessQuery = function(query) {
       }
     }
   }
-  if (query.where) {
-    if (!query.limit) query.limit = 100;
-  }
   return query;
 };
 
