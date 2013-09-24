@@ -50,6 +50,16 @@ User.find({ where: { name: 'Alex' }}, function(err, user) {
 });
 ```
 
+### Model.count(query, callback)
+
+Count all models using given `query`.
+
+```javascript
+User.count({ where: { city: 'San Francisco' }}, function(err, count) {
+  // ...
+});
+```
+
 ### Queries
 
 The query is a subset of [mongo-sql](https://github.com/goodybag/mongo-sql).
