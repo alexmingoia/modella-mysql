@@ -52,6 +52,12 @@ module.exports = function(settings) {
 var plugin = {};
 
 /**
+ * Expose the mysql module
+ */
+
+module.exports.mysql = mysql;
+
+/**
  * Find model with given `id` or `query`.
  *
  * @param {Number|Object} id
