@@ -40,6 +40,14 @@ describe('plugin', function() {
     User.should.have.property('remove');
     done();
   });
+
+  it('should expose db connection on model', function(done) {
+    var User = modella('User').attr('id').attr('name');
+    User.use(mysql(settings));
+    User.should.have.property('db');
+    User.db.should.have.property('query');
+    done();
+  });
 });
 
 describe('Model', function() {
@@ -47,7 +55,7 @@ describe('Model', function() {
 
   before(function(done) {
     User.use(require('..')(settings));
-    User.mysql.query(
+    User.db.query(
       'CREATE DATABASE IF NOT EXISTS `modella_test`;' +
       'USE `modella_test`;' +
       'CREATE TABLE IF NOT EXISTS `users` (' +
@@ -62,7 +70,7 @@ describe('Model', function() {
   });
 
   afterEach(function(done) {
-    User.mysql.query(
+    User.db.query(
       'DELETE FROM `users` WHERE 1',
       function(err) {
         if (err) return done(err);
@@ -168,7 +176,7 @@ describe('Model', function() {
   });
 
   after(function(done) {
-    User.mysql.query('DROP DATABASE IF EXISTS modella_test', function(err) {
+    User.db.query('DROP DATABASE IF EXISTS modella_test', function(err) {
       if (err) return done(err);
       done();
     });
