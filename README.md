@@ -60,6 +60,33 @@ User.count({ where: { city: 'San Francisco' }}, function(err, count) {
 });
 ```
 
+### Model.hasMany(Model, settings)
+
+Define one-to-many relationship with given `Model`.
+
+```javascript
+User.hasMany(Post, { as: 'posts', foreignKey: 'user_id' });
+// creates instance methods:
+// user.posts([query], callback)
+// user.newPost([data], callback)
+
+// Use your own all and create methods
+User.hasMany(Post, {
+  as: 'posts',
+  all: function(query, callback) {
+    // ...
+  },
+  create: function(data, callback) {
+    // ...
+  }
+});
+```
+
+### exports.mysql
+### exports.pool
+
+MySQL module and connection pool.
+
 ### Queries
 
 The query is a subset of [mongo-sql](https://github.com/goodybag/mongo-sql).

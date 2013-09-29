@@ -17,6 +17,12 @@ var mysql = require('mysql');
 var build = require('mongo-sql').sql;
 
 /**
+ * Models share connection pool
+ */
+
+var pool;
+
+/**
  * Initialize a new MySQL plugin with given `settings`.
  *
  * Refer to felixge/node-mysql documentation for available settings.
@@ -28,9 +34,11 @@ var build = require('mongo-sql').sql;
 
 module.exports = function(settings) {
   settings.multipleStatement = true;
-  var pool = mysql.createPool(settings);
-  pool.on('connection', configureConnection);
-  process.once('exit', pool.end.bind(pool));
+  if (!pool) {
+    pool = module.exports.pool = mysql.createPool(settings);
+    pool.on('connection', configureConnection);
+    process.once('exit', pool.end.bind(pool));
+  }
   return function(Model) {
     Model.db = pool;
     if (!Model.tableName) {
@@ -66,6 +74,51 @@ module.exports.mysql = mysql;
  */
 
 var plugin = {};
+
+/**
+ * Define one-to-many relationship with given `Model`.
+ *
+ * @example
+ *
+ *     User.hasMany(Post, { as: 'posts', foreignKey: 'user_id' });
+ *     // creates instance methods:
+ *     // user.posts([query], callback)
+ *     // user.newPost([data], callback)
+ *
+ *     // Use your own all and create methods
+ *     User.hasMany(Post, {
+ *       as: 'posts',
+ *       all: function(query, callback) {
+ *         // ...
+ *       },
+ *       create: function(data, callback) {
+ *         // ...
+ *       }
+ *     });
+ *
+ * @param {modella.Model} Model
+ * @param {Object} options
+ * @api public
+ */
+
+plugin.hasMany = function(Model, options) {
+  // user.posts()
+  this.prototype[options.as] = options.all || function(query, cb) {
+    if (typeof query == 'function') {
+      cb = query;
+      query = {};
+    }
+    query.where = query.where || {};
+    query.where[options.foreignKey] = this.primary();
+    Model.all(query, cb);
+  };
+  // user.newPost()
+  this.prototype['new' + Model.modelName] = options.create || function(data) {
+    var model = new Model(data);
+    model[options.foreignKey](this.primary());
+    return model;
+  };
+};
 
 /**
  * Find model with given `id` or `query`.

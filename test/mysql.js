@@ -52,18 +52,30 @@ describe('plugin', function() {
 
 describe('Model', function() {
   var User = modella('User').attr('id').attr('name');
+  var Post = modella('Post').attr('id').attr('name').attr('user_id');
 
   before(function(done) {
     User.use(require('..')(settings));
+    Post.use(require('..')(settings));
     User.db.query(
-      'CREATE DATABASE IF NOT EXISTS `modella_test`;' +
-      'USE `modella_test`;' +
+      'CREATE DATABASE IF NOT EXISTS `modella_test`; ' +
+      'USE `modella_test`; ' +
       'CREATE TABLE IF NOT EXISTS `users` (' +
       '`id` int(11) unsigned NOT NULL AUTO_INCREMENT, ' +
       '`name` varchar(255) NOT NULL DEFAULT \'\', ' +
-      'PRIMARY KEY (`id`)); USE `modella_test`; SET sql_mode=ANSI_QUOTES;',
+      'PRIMARY KEY (`id`)); ' +
+      'CREATE TABLE IF NOT EXISTS `posts` (' +
+      '`id` int(11) unsigned NOT NULL AUTO_INCREMENT, ' +
+      '`user_id` int(11) unsigned DEFAULT NULL, ' +
+      '`name` varchar(255) NOT NULL DEFAULT \'\', ' +
+      'PRIMARY KEY (`id`), KEY `user_id` (`user_id`), ' +
+      'CONSTRAINT `posts_ibfk_1` FOREIGN KEY (`user_id`) ' +
+      'REFERENCES `users` (`id`) ON DELETE CASCADE); ',
       function(err) {
         if (err) return done(err);
+        User.db.on('connection', function(connection) {
+          connection.query('USE `modella_test`');
+        });
         done();
       }
     );
@@ -77,6 +89,31 @@ describe('Model', function() {
         done();
       }
     );
+  });
+
+  describe('.hasMany', function() {
+    it('should define proto methods', function(done) {
+      User.hasMany(Post, { as: 'posts', foreignKey: 'user_id' });
+      var user = new User({ name: 'alex' });
+      user.should.have.property('posts');
+      user.posts.should.be.a('function');
+      user.should.have.property('newPost');
+      user.newPost.should.be.a('function');
+      done();
+    });
+
+    it('should create new related models', function(done) {
+      User.hasMany(Post, { as: 'posts', foreignKey: 'user_id' });
+      var user = new User({ name: 'alex' });
+      user.save(function(err) {
+        var post = user.newPost({ name: "alex's post" });
+        post.save(function(err) {
+          should.not.exist(err);
+          should.exist(post.primary());
+          done();
+        });
+      });
+    });
   });
 
   describe('.all', function() {
