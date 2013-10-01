@@ -73,7 +73,7 @@ module.exports.mysql = mysql;
  * Plugin for Modella's Model.use()
  */
 
-var plugin = {};
+var plugin = module.exports.plugin = {};
 
 /**
  * Define one-to-many relationship with given `Model`.
