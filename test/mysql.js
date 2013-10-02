@@ -93,20 +93,20 @@ describe('Model', function() {
 
   describe('.hasMany', function() {
     it('should define proto methods', function(done) {
-      User.hasMany(Post, { as: 'posts', foreignKey: 'user_id' });
+      User.hasMany('posts', { model: Post, foreignKey: 'user_id' });
       var user = new User({ name: 'alex' });
       user.should.have.property('posts');
       user.posts.should.be.a('function');
-      user.should.have.property('newPost');
-      user.newPost.should.be.a('function');
+      user.posts.should.have.property('create');
+      user.posts.create.should.be.a('function');
       done();
     });
 
     it('should create new related models', function(done) {
-      User.hasMany(Post, { as: 'posts', foreignKey: 'user_id' });
+      User.hasMany('posts', { model: Post, foreignKey: 'user_id' });
       var user = new User({ name: 'alex' });
       user.save(function(err) {
-        var post = user.newPost({ name: "alex's post" });
+        var post = user.posts.create({ name: "alex's post" });
         post.save(function(err) {
           should.not.exist(err);
           should.exist(post.primary());

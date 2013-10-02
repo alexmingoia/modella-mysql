@@ -76,48 +76,42 @@ module.exports.mysql = mysql;
 var plugin = module.exports.plugin = {};
 
 /**
- * Define one-to-many relationship with given `Model`.
+ * Define one-to-many relationships.
  *
  * @example
  *
- *     User.hasMany(Post, { as: 'posts', foreignKey: 'user_id' });
- *     // creates instance methods:
- *     // user.posts([query], callback)
- *     // user.newPost([data], callback)
+ *     User.hasMany('posts', { model: Post, foreignKey: 'userId' });
  *
- *     // Use your own all and create methods
- *     User.hasMany(Post, {
- *       as: 'posts',
- *       all: function(query, callback) {
- *         // ...
- *       },
- *       create: function(data, callback) {
- *         // ...
- *       }
- *     });
+ *     var posts = user.posts([query], callback)
+ *     // Equivelant to:
+ *     // var posts = Post.all({ userId: id });
  *
- * @param {modella.Model} Model
- * @param {Object} options
+ *     var post = user.posts.create();
+ *     // Equivelant to:
+ *     // var post = new Post({ userId: id })
+ *
+ * @param {String} name
+ * @param {Object} settings The `model` constructor and `foreignKey` name are required.
  * @api public
  */
 
-plugin.hasMany = function(Model, options) {
-  // user.posts()
-  this.prototype[options.as] = options.all || function(query, cb) {
+plugin.hasMany = function(name, settings) {
+  this.prototype[name] = function(query, cb) {
     if (typeof query == 'function') {
       cb = query;
       query = {};
     }
     query.where = query.where || {};
-    query.where[options.foreignKey] = this.primary();
-    Model.all(query, cb);
+    query.where[settings.foreignKey] = this.primary();
+    settings.model.all(query, cb);
   };
-  // user.newPost()
-  this.prototype['new' + Model.modelName] = options.create || function(data) {
-    var model = new Model(data);
-    model[options.foreignKey](this.primary());
-    return model;
+  this.prototype[name].create = function(data) {
+    data[settings.model.foreignKey] = this.model.primary();
+    return new settings.model(data);
   };
+  this.on('initialize', function(model) {
+    model[name].model = model;
+  });
 };
 
 /**

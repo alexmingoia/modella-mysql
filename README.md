@@ -66,27 +66,24 @@ User.count({ where: { city: 'San Francisco' }}, function(err, count) {
 Define one-to-many relationship with given `Model`.
 
 ```javascript
-User.hasMany(Post, { as: 'posts', foreignKey: 'user_id' });
-// creates instance methods:
-// user.posts([query], callback)
-// user.newPost([data], callback)
+User.hasMany('posts', { model: Post, foreignKey: 'userId' });
 
-// Use your own all and create methods
-User.hasMany(Post, {
-  as: 'posts',
-  all: function(query, callback) {
-    // ...
-  },
-  create: function(data, callback) {
-    // ...
-  }
-});
+var posts = user.posts([query], callback)
+// Equivelant to:
+// var posts = Post.all({ userId: id });
+
+var post = user.posts.create();
+// Equivelant to:
+// var post = new Post({ userId: id })
 ```
 
 ### exports.mysql
+
+MySQL connection pool shared by models.
+
 ### exports.pool
 
-MySQL module and connection pool.
+MySQL module.
 
 ### Queries
 
