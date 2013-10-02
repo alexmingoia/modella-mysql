@@ -76,41 +76,120 @@ module.exports.mysql = mysql;
 var plugin = module.exports.plugin = {};
 
 /**
- * Define one-to-many relationships.
+ * Define a "has many" relationship.
  *
  * @example
  *
  *     User.hasMany('posts', { model: Post, foreignKey: 'userId' });
  *
- *     var posts = user.posts([query], callback)
- *     // Equivelant to:
- *     // var posts = Post.all({ userId: id });
+ *     user.posts(function(err, posts) {
+ *       // ...
+ *     });
  *
  *     var post = user.posts.create();
- *     // Equivelant to:
- *     // var post = new Post({ userId: id })
  *
  * @param {String} name
- * @param {Object} settings The `model` constructor and `foreignKey` name are required.
+ * @param {Object} params The `model` constructor and `foreignKey` name are required.
  * @api public
  */
 
-plugin.hasMany = function(name, settings) {
+plugin.hasMany = function(name, params) {
   this.prototype[name] = function(query, cb) {
     if (typeof query == 'function') {
       cb = query;
       query = {};
     }
     query.where = query.where || {};
-    query.where[settings.foreignKey] = this.primary();
-    settings.model.all(query, cb);
+    if (params.through) {
+      if (typeof params.through != 'string') {
+        params.through = params.through.tableName;
+      }
+      query.innerJoin = {};
+      query.innerJoin[params.through] = {};
+      query.innerJoin[params.through][params.fromKey] = '$' + params.model.tableName + '.' + params.model.primaryKey + '$';
+      query.where[params.through + '.' + params.foreignKey] = this.primary();
+    }
+    else {
+      query.where[params.foreignKey] = this.primary();
+    }
+    params.model.all(query, cb);
   };
   this.prototype[name].create = function(data) {
-    data[settings.model.foreignKey] = this.model.primary();
-    return new settings.model(data);
+    data[params.foreignKey] = this.model.primary();
+    return new params.model(data);
   };
   this.on('initialize', function(model) {
     model[name].model = model;
+  });
+};
+
+/**
+ * Define a "belongs to" relationship.
+ *
+ * @example
+ *
+ *     Post.belongsTo(User, { as: 'author', foreignKey: 'userId' });
+ *
+ *     post.author(function(err, user) {
+ *       // ...
+ *     });
+ *
+ * @param {modella.Model} Model
+ * @param {Object} params The `as` and `foreignKey` names are required.
+ * @api public
+ */
+
+plugin.belongsTo = function(Model, params) {
+  this.prototype[options.as] = function(cb) {
+    var query = {};
+    query[Model.primaryKey] = this[params.foreignKey]();
+    Model.find(query, cb);
+  };
+};
+
+/**
+ * Define a "has and belongs to many" relationship.
+ *
+ * @example
+ *
+ *     Post.hasAndBelongsToMany('tags', {
+ *       as: 'posts',
+ *       model: Tag,
+ *       fromKey: 'postId',
+ *       toKey: 'tagId'
+ *     });
+ *
+ *     post.tags(function(err, tags) {
+ *       // ...
+ *     });
+ *
+ *     tag.posts(function(err, posts) {
+ *       // ...
+ *     });
+ *
+ * @param {modella.Model} Model
+ * @param {Object} params
+ * @api public
+ */
+
+plugin.hasAndBelongsToMany = function(name, params) {
+  if (!params.through) {
+    params.through = this.modelName + params.model.modelName;
+    if (this.modelName > params.model.modelName) {
+      params.through = params.model.modelName + this.modelName;
+    }
+  }
+  this.hasMany(name, {
+    model: params.model,
+    through: params.through,
+    fromKey: params.fromKey,
+    foreignKey: params.toKey
+  });
+  params.model.hasMany(params.as, {
+    model: this,
+    through: params.through,
+    fromKey: params.toKey,
+    foreignKey: params.fromKey
   });
 };
 
