@@ -40,6 +40,7 @@ module.exports = function(settings) {
     process.once('exit', pool.end.bind(pool));
   }
   return function(Model) {
+    Model.relations = Model.relations || {};
     Model.db = pool;
     if (!Model.tableName) {
       Model.tableName = lingo.pluralize(Model.modelName.toLowerCase());
@@ -121,6 +122,11 @@ plugin.hasMany = function(name, params) {
   this.on('initialize', function(model) {
     model[name].model = model;
   });
+  params.model.relations[this.modelName] = {
+    type: 'hasMany',
+    name: name,
+    params: params
+  };
 };
 
 /**
@@ -193,16 +199,10 @@ plugin.hasAndBelongsToMany = function(name, params) {
   });
 };
 
-/**
- * Find model with given `id` or `query`.
- *
- * @param {Number|Object} id
- * @param {Function(err, model)} callback
- * @api public
- */
-
 plugin.find = plugin.get = function(id, callback) {
   var query = typeof id == 'object' ? id : { where: { id: id } };
+  var relation = this.relations[query.related ? query.related.model.modelName : ''];
+  if (relation) query = this.relationQuery(relation, query);
   var sql = build(extend({
     type: 'select',
     table: this.tableName
@@ -229,10 +229,13 @@ plugin.find = plugin.get = function(id, callback) {
  */
 
 plugin.all = function(query, callback) {
+  query = this.preprocessQuery(query);
+  var relation = this.relations[query.related ? query.related.model.modelName : ''];
+  if (relation) query = this.relationQuery(relation, query);
   var sql = build(extend({
     type: 'select',
     table: this.tableName
-  }, this.preprocessQuery(query)));
+  }, query));
   this.db.query(sql.toString(), sql.values, function(err, rows, fields) {
     if (err) return callback(err);
     var collection = [];
@@ -254,11 +257,14 @@ plugin.all = function(query, callback) {
  */
 
 plugin.count = function(query, callback) {
+  query = this.preprocessQuery(query);
+  var relation = this.relations[query.related ? query.related.model.modelName : ''];
+  if (relation) query = this.relationQuery(relation, query);
   var sql = build(extend({
     type: 'select',
     columns: ['count(*)'],
     table: this.tableName
-  }, this.preprocessQuery(query)));
+  }, query));
   this.db.query(sql.toString(), sql.values, function(err, rows, fields) {
     if (err) return callback(err);
     var count = rows[0]['count(*)'];
@@ -353,13 +359,39 @@ plugin.preprocessQuery = function(query) {
     query.where = {};
     for (var param in query) {
       if (query.hasOwnProperty(param)) {
-        if (!param.match(/(where|offset|limit|order|groupBy)$/)) {
+        if (!param.match(/(related|where|offset|limit|order|groupBy)$/)) {
           query.where[param] = query[param];
           delete query[param];
         }
       }
     }
   }
+  return query;
+};
+
+/**
+ * Find model with given `id` or `query`.
+ *
+ * @param {Number|Object} id
+ * @param {Function(err, model)} callback
+ * @api public
+ */
+
+plugin.relationQuery = function(relation, query) {
+  var params = relation.params;
+  if (params.through) {
+    if (typeof params.through != 'string') {
+      params.through = params.through.tableName;
+    }
+    query.innerJoin = {};
+    query.innerJoin[params.through] = {};
+    query.innerJoin[params.through][params.fromKey] = '$' + params.model.tableName + '.' + params.model.primaryKey + '$';
+    query.where[params.through + '.' + params.foreignKey] = query.related.primary();
+  }
+  else {
+    query.where[params.foreignKey] = query.related.primary();
+  }
+  delete query.related;
   return query;
 };
 
