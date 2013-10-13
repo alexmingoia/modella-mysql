@@ -146,7 +146,7 @@ plugin.hasMany = function(name, params) {
  */
 
 plugin.belongsTo = function(Model, params) {
-  this.prototype[options.as] = function(cb) {
+  this.prototype[params.as] = function(cb) {
     var query = {};
     query[Model.primaryKey] = this[params.foreignKey]();
     Model.find(query, cb);
