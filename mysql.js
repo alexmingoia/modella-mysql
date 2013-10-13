@@ -55,13 +55,7 @@ module.exports = plugin;
  * Expose the mysql module
  */
 
-module.exports.adapter = mysql;
-
-/**
- * Plugin for Modella's Model.use()
- */
-
-var plugin = module.exports.plugin = {};
+plugin.adapter = mysql;
 
 /**
  * Define a "has many" relationship.
