@@ -61,29 +61,68 @@ User.count({ where: { city: 'San Francisco' }}, function(err, count) {
 });
 ```
 
-### Model.hasMany(Model, settings)
+### Model.hasMany(name, params)
 
-Define one-to-many relationship with given `Model`.
+Define a "has many" relationship with given `name` and `params`.
 
 ```javascript
 User.hasMany('posts', { model: Post, foreignKey: 'userId' });
 
-var posts = user.posts([query], callback)
-// Equivelant to:
-// var posts = Post.all({ userId: id });
+// Creates methods:
+
+user.posts(function(err, posts) {
+  // ...
+})
 
 var post = user.posts.create();
-// Equivelant to:
-// var post = new Post({ userId: id })
 ```
 
-### exports.mysql
+### Model.belongsTo(Model, params)
 
-MySQL connection pool shared by models.
+Define a "belongs to" relationship with given `Model`.
 
-### exports.pool
+```javascript
+User.belongsTo(Post, { as: 'author', foreignKey: 'userId' });
 
-MySQL module.
+// Creates method:
+
+post.author(function(err, user) {
+  // ...
+});
+```
+
+### Model.hasAndBelongsToMany(name, params)
+
+Define a "has and belongs to many" relationship with given `name` and `params`.
+
+```javascript
+User.hasAndBelongsToMany('posts', {
+  as: 'author',
+  model: Post,
+  foreignKey: 'userId'
+});
+
+// Creates methods:
+
+user.posts(function(err, posts) {
+  // ...
+})
+
+var post = user.posts.create();
+
+post.author(function(err, user) {
+  // ...
+});
+```
+
+### exports.adapter
+
+[MySQL](https://github.com/felixge/node-mysql) module.
+
+### Connection pooling
+
+Models that share a settings object will share a connection pool, exposed via
+`settings.pool`.
 
 ### Queries
 

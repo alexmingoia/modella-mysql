@@ -52,7 +52,7 @@ describe('plugin', function() {
 
 describe('Model', function() {
   var User = modella('User').attr('id').attr('name');
-  var Post = modella('Post').attr('id').attr('name').attr('user_id');
+  var Post = modella('Post').attr('id').attr('title').attr('user_id');
 
   before(function(done) {
     User.use(require('..')(settings));
@@ -67,7 +67,7 @@ describe('Model', function() {
       'CREATE TABLE IF NOT EXISTS `posts` (' +
       '`id` int(11) unsigned NOT NULL AUTO_INCREMENT, ' +
       '`user_id` int(11) unsigned DEFAULT NULL, ' +
-      '`name` varchar(255) NOT NULL DEFAULT \'\', ' +
+      '`title` varchar(255) NOT NULL DEFAULT \'\', ' +
       'PRIMARY KEY (`id`), KEY `user_id` (`user_id`), ' +
       'CONSTRAINT `posts_ibfk_1` FOREIGN KEY (`user_id`) ' +
       'REFERENCES `users` (`id`) ON DELETE CASCADE); ',
@@ -106,13 +106,38 @@ describe('Model', function() {
       User.hasMany('posts', { model: Post, foreignKey: 'user_id' });
       var user = new User({ name: 'alex' });
       user.save(function(err) {
-        var post = user.posts.create({ name: "alex's post" });
+        var post = user.posts.create({ title: "alex's post" });
         post.save(function(err) {
           should.not.exist(err);
           should.exist(post.primary());
           done();
         });
       });
+    });
+  });
+
+  describe('.belongsTo', function() {
+    it('should define proto methods', function(done) {
+      User.belongsTo(Post, { as: 'author', foreignKey: 'user_id' });
+      var post = new Post({ title: "alex's post" });
+      post.should.have.property('author');
+      post.author.should.be.a('function');
+      done();
+    });
+  });
+
+  describe('.hasAndBelongsToMany', function() {
+    it('should define proto methods', function(done) {
+      User.hasAndBelongsToMany('posts', { as: 'author', model: Post, foreignKey: 'user_id' });
+      var user = new User({ name: 'alex' });
+      user.should.have.property('posts');
+      user.posts.should.be.a('function');
+      user.posts.should.have.property('create');
+      user.posts.create.should.be.a('function');
+      var post = new Post({ title: "alex's post" });
+      post.should.have.property('author');
+      post.author.should.be.a('function');
+      done();
     });
   });
 
