@@ -422,7 +422,7 @@ plugin.queryFormat = function(query, values) {
   if (!values || !values.length) return query;
   return query.replace(/\$\d+/g, function(match) {
     var i = Number(String(match).substr(1)) - 1;
-    if (values[i]) return this.escape(values[i]);
+    if (values[i] !== undefined) return this.escape(values[i]);
     return match;
   }.bind(this));
 };
