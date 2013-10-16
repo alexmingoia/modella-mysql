@@ -399,6 +399,9 @@ plugin.preprocessValues = function(values) {
     else if (typeof values[key] === 'boolean') {
       values[key] = values[key] ? 1 : 'NULL';
     }
+    else if (values[key] === undefined) {
+      delete values[key];
+    }
   }
   return values;
 };
