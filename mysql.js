@@ -41,6 +41,41 @@ var plugin = function(settings) {
       Model.tableName = lingo.pluralize(Model.modelName.toLowerCase());
     }
     extend(Model, plugin);
+    var toJSON = Model.prototype.toJSON;
+    Model.prototype.toJSON = function() {
+      var attrs = this.model.attrs;
+      var json = toJSON.call(this);
+      for (var attr in json) {
+        if (attrs[attr].type == 'date') {
+          json[attr] = Math.ceil(this[attr]().getTime() / 1000);
+        }
+      }
+      return json;
+    };
+    var attr = Model.attr;
+    Model.attr = function(name, options) {
+      attr.call(Model, name, options);
+      if (Model.attrs[name].type == 'date') {
+        Model.prototype[name] = function(val) {
+          if (val) {
+            if (typeof val == 'number') {
+              val = new Date(val * 1000);
+            }
+            this.attrs[name] = val;
+          }
+          return this.attrs[name];
+        };
+      }
+      return this;
+    };
+    Model.on('initialize', function(model) {
+      for (var key in model.attrs) {
+        if (model.model.attrs[key].type == 'date'
+        && typeof model.attrs[key] == 'number') {
+          model.attrs[key] = new Date(model.attrs[key] * 1000);
+        }
+      }
+    });
     return Model;
   };
 };
