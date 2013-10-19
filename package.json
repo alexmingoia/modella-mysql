@@ -18,10 +18,10 @@
   },
   "main": "./mysql.js",
   "scripts": {
-    "test": "NODE_ENV=test node_modules/mocha/bin/mocha --bail --reporter spec test"
+    "test": "NODE_ENV=test node_modules/mocha/bin/mocha test --reporter list"
   },
   "engines": {
-    "node": ">= 0.10"
+    "node": ">= 0.8"
   },
   "license": "MIT"
 }

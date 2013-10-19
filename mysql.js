@@ -11,10 +11,18 @@
  * Dependencies.
  */
 
-var extend = require('extend');
-var lingo = require('lingo').en;
-var mysql = require('mysql');
-var build = require('mongo-sql').sql;
+var buildSQL = require('mongo-sql').sql
+  , extend   = require('extend')
+  , lingo    = require('lingo').en
+  , mysql    = require('mysql');
+
+module.exports = plugin;
+
+module.exports.adapter = mysql;
+module.exports.prepareQuery = prepareQuery;
+
+var Model = module.exports.Model = {};
+var proto = module.exports.proto = {};
 
 /**
  * Initialize a new MySQL plugin with given `settings`.
@@ -26,7 +34,7 @@ var build = require('mongo-sql').sql;
  * @api public
  */
 
-var plugin = function(settings) {
+function plugin(settings) {
   settings.multipleStatement = true;
   // Models share connection pool through shared settings object
   if (!settings.pool) {
@@ -34,41 +42,23 @@ var plugin = function(settings) {
     settings.pool.on('connection', configureConnection);
     process.once('exit', settings.pool.end.bind(settings.pool));
   }
+  var mixins = Model;
   return function(Model) {
+    Object.defineProperty(Model, '_attr', {
+      value: Model.attr
+    });
+    Object.defineProperty(Model.prototype, '_toJSON', {
+      value: Model.prototype.toJSON
+    });
     Model.db = settings.pool;
     Model.relations = Model.relations || {};
     if (!Model.tableName) {
       Model.tableName = lingo.pluralize(Model.modelName.toLowerCase());
     }
-    extend(Model, plugin);
-    var toJSON = Model.prototype.toJSON;
-    Model.prototype.toJSON = function() {
-      var attrs = this.model.attrs;
-      var json = toJSON.call(this);
-      for (var attr in json) {
-        if (attrs[attr].type == 'date') {
-          json[attr] = Math.ceil(this[attr]().getTime() / 1000);
-        }
-      }
-      return json;
-    };
-    var attr = Model.attr;
-    Model.attr = function(name, options) {
-      attr.call(Model, name, options);
-      if (Model.attrs[name].type == 'date') {
-        Model.prototype[name] = function(val) {
-          if (val) {
-            if (typeof val == 'number') {
-              val = new Date(val * 1000);
-            }
-            this.attrs[name] = val;
-          }
-          return this.attrs[name];
-        };
-      }
-      return this;
-    };
+    extend(Model, mixins);
+    Model.prototype.toJSON = proto.toJSON;
     Model.on('initialize', function(model) {
+      // Transform UNIX timestamps to Date object
       for (var key in model.attrs) {
         if (model.model.attrs[key].type == 'date'
         && typeof model.attrs[key] == 'number') {
@@ -81,16 +71,28 @@ var plugin = function(settings) {
 };
 
 /**
- * Expose `plugin`
+ * Declare model attributes.
+ *
+ * @param {String} name
+ * @param {Object} options
+ * @api public
  */
 
-module.exports = plugin;
-
-/**
- * Expose the mysql module
- */
-
-plugin.adapter = mysql;
+Model.attr = function(name, options) {
+  this._attr(name, options);
+  if (this.attrs[name].type == 'date') {
+    this.prototype[name] = function(val) {
+      if (val) {
+        if (typeof val == 'number') {
+          val = new Date(val * 1000);
+        }
+        this.attrs[name] = val;
+      }
+      return this.attrs[name];
+    };
+  }
+  return this;
+};
 
 /**
  * Define a "has many" relationship.
@@ -107,11 +109,17 @@ plugin.adapter = mysql;
  *
  * @param {String} name
  * @param {Object} params The `model` constructor and `foreignKey` name are required.
+ * @return {Model}
  * @api public
  */
 
-plugin.hasMany = function(name, params) {
-  this.prototype[name] = function(query, cb) {
+Model.hasMany = function(name, params) {
+  params.model.relations[this.modelName] = {
+    type: 'hasMany',
+    name: name,
+    params: params
+  };
+  var hasMany = function(query, cb) {
     if (typeof query == 'function') {
       cb = query;
       query = {};
@@ -131,18 +139,15 @@ plugin.hasMany = function(name, params) {
     }
     params.model.all(query, cb);
   };
-  this.prototype[name].create = function(data) {
+  hasMany.create = function(data) {
     data[params.foreignKey] = this.model.primary();
     return new params.model(data);
   };
   this.on('initialize', function(model) {
+    model[name] = hasMany;
     model[name].model = model;
   });
-  params.model.relations[this.modelName] = {
-    type: 'hasMany',
-    name: name,
-    params: params
-  };
+  return this;
 };
 
 /**
@@ -156,17 +161,18 @@ plugin.hasMany = function(name, params) {
  *       // ...
  *     });
  *
- * @param {modella.Model} Model
+ * @param {Model} Owner
  * @param {Object} params The `as` and `foreignKey` names are required.
  * @api public
  */
 
-plugin.belongsTo = function(Model, params) {
-  Model.prototype[params.as] = function(cb) {
+Model.belongsTo = function(Owner, params) {
+  Owner.prototype[params.as] = function(cb) {
     var query = {};
-    query[Model.primaryKey] = this[params.foreignKey]();
-    Model.find(query, cb);
+    query[Owner.primaryKey] = this[params.foreignKey]();
+    Owner.find(query, cb);
   };
+  return this;
 };
 
 /**
@@ -194,35 +200,34 @@ plugin.belongsTo = function(Model, params) {
  * @api public
  */
 
-plugin.hasAndBelongsToMany = function(name, params) {
+Model.hasAndBelongsToMany = function(name, params) {
   if (!params.through) {
     params.through = this.modelName + params.model.modelName;
     if (this.modelName > params.model.modelName) {
       params.through = params.model.modelName + this.modelName;
     }
   }
-  this.hasMany(name, {
-    model: params.model,
-    through: params.through,
-    fromKey: params.fromKey,
-    foreignKey: params.toKey
-  });
   params.model.hasMany(params.as, {
     model: this,
     through: params.through,
     fromKey: params.toKey,
     foreignKey: params.fromKey
   });
+  this.hasMany(name, {
+    model: params.model,
+    through: params.through,
+    fromKey: params.fromKey,
+    foreignKey: params.toKey
+  });
+  return this;
 };
 
-plugin.find = plugin.get = function(id, callback) {
+Model.find = Model.get = function(id, callback) {
   var query = typeof id == 'object' ? id : { where: { id: id } };
-  var relation = this.relations[query.related ? query.related.model.modelName : ''];
-  if (relation) query = this.relationQuery(relation, query);
-  var sql = build(extend({
+  var sql = buildSQL(prepareQuery(this, extend({
     type: 'select',
     table: this.tableName
-  }, query));
+  }, query)));
   this.db.query(sql.toString(), sql.values, function(err, rows, fields) {
     if (err) return callback(err);
     var model;
@@ -244,14 +249,11 @@ plugin.find = plugin.get = function(id, callback) {
  * @api public
  */
 
-plugin.all = function(query, callback) {
-  query = this.preprocessQuery(query);
-  var relation = this.relations[query.related ? query.related.model.modelName : ''];
-  if (relation) query = this.relationQuery(relation, query);
-  var sql = build(extend({
+Model.all = function(query, callback) {
+  var sql = buildSQL(prepareQuery(this, extend({
     type: 'select',
     table: this.tableName
-  }, query));
+  }, query)));
   this.db.query(sql.toString(), sql.values, function(err, rows, fields) {
     if (err) return callback(err);
     var collection = [];
@@ -272,15 +274,12 @@ plugin.all = function(query, callback) {
  * @api public
  */
 
-plugin.count = function(query, callback) {
-  query = this.preprocessQuery(query);
-  var relation = this.relations[query.related ? query.related.model.modelName : ''];
-  if (relation) query = this.relationQuery(relation, query);
-  var sql = build(extend({
+Model.count = function(query, callback) {
+  var sql = buildSQL(prepareQuery(this, extend({
     type: 'select',
     columns: ['count(*)'],
     table: this.tableName
-  }, query));
+  }, query)));
   this.db.query(sql.toString(), sql.values, function(err, rows, fields) {
     if (err) return callback(err);
     var count = rows[0]['count(*)'];
@@ -295,12 +294,12 @@ plugin.count = function(query, callback) {
  * @api private
  */
 
-plugin.save = function(fn) {
-  var sql = build({
+Model.save = function(fn) {
+  var sql = buildSQL(prepareQuery(this.model, {
     type: 'insert',
     table: this.model.tableName,
-    values: this.model.preprocessValues(this.toJSON())
-  });
+    values: this.toJSON()
+  }));
   this.model.db.query(sql.toString(), sql.values, function(err, rows, fields) {
     if (err) return fn(err);
     this.primary(rows.insertId);
@@ -315,16 +314,16 @@ plugin.save = function(fn) {
  * @api private
  */
 
-plugin.update = function(fn) {
+Model.update = function(fn) {
   var body = this.changed();
   var where = {};
   where[this.model.primaryKey] = this.primary();
-  var sql = build({
+  var sql = buildSQL(prepareQuery(this.model, {
     type: 'update',
     table: this.model.tableName,
     where: where,
-    values: this.model.preprocessValues(body)
-  });
+    values: body
+  }));
   this.model.db.query(sql.toString(), sql.values, function(err, rows, fields) {
     if (err) return fn(err);
     fn(null, fields);
@@ -338,14 +337,14 @@ plugin.update = function(fn) {
  * @api private
  */
 
-plugin.remove = function(fn) {
+Model.remove = function(fn) {
   var query = {
     type: 'delete',
     table: this.model.tableName,
     where: {}
   };
   query.where[this.model.primaryKey] = this.primary();
-  var sql = build(query);
+  var sql = buildSQL(prepareQuery(this.model, query));
   this.model.db.query(sql.toString(), sql.values, function(err, rows) {
     if (err) return fn(err);
     fn();
@@ -353,14 +352,34 @@ plugin.remove = function(fn) {
 };
 
 /**
- * Preprocess query.
+ * Return model attributes JSON. Converts attribute types to proper output
+ * format. For example, `Date` is transformed to UNIX timestamp.
  *
+ * @return {Object}
+ * @api private
+ */
+
+proto.toJSON = function() {
+  var attrs = this.model.attrs;
+  var json = this._toJSON.call(this);
+  for (var attr in json) {
+    if (attrs[attr].type == 'date') {
+      json[attr] = Math.ceil(this[attr]().getTime() / 1000);
+    }
+  }
+  return json;
+};
+
+/**
+ * Prepare query.
+ *
+ * @param {Model} Model
  * @param {Object} query
  * @return {Object}
  * @api private
  */
 
-plugin.preprocessQuery = function(query) {
+function prepareQuery(Model, query) {
   var keywords = [];
   for (var key in query) {
     if (query.hasOwnProperty(key) && key.match(/(where|Join)$/)) {
@@ -375,70 +394,55 @@ plugin.preprocessQuery = function(query) {
     query.where = {};
     for (var param in query) {
       if (query.hasOwnProperty(param)) {
-        if (!param.match(/(related|where|offset|limit|order|groupBy)$/)) {
+        if (!param.match(/(table|type|values|related|where|offset|limit|order|groupBy)$/)) {
           query.where[param] = query[param];
           delete query[param];
         }
       }
     }
   }
+  // Relations
+  if (query.related) {
+    var relation = Model.relations[query.related ? query.related.model.modelName : ''];
+    if (relation) {
+      var params = relation.params;
+      if (params.through) {
+        if (typeof params.through != 'string') {
+          params.through = params.through.tableName;
+        }
+        query.innerJoin = {};
+        query.innerJoin[params.through] = {};
+        query.innerJoin[params.through][params.fromKey] = '$' + params.model.tableName + '.' + params.model.primaryKey + '$';
+        query.where[params.through + '.' + params.foreignKey] = query.related.primary();
+      }
+      else {
+        query.where[params.foreignKey] = query.related.primary();
+      }
+    }
+    delete query.related;
+  }
+  // Values
+  if (query.values) {
+    var values = query.values;
+    for (var key in values) {
+      if (Model.attrs[key].dataFormatter) {
+        values[key] = Model.attrs[key].dataFormatter(values[key], Model);
+      }
+      else if (values[key] instanceof Date) {
+        values[key] = Math.floor(values[key].getTime() / 1000);
+      }
+      else if (typeof values[key] === 'object') {
+        values[key] = JSON.stringify(values[key]);
+      }
+      else if (typeof values[key] === 'boolean') {
+        values[key] = values[key] ? 1 : 'NULL';
+      }
+      else if (values[key] === undefined) {
+        delete values[key];
+      }
+    }
+  }
   return query;
-};
-
-/**
- * Process relation queries from `query.related`.
- *
- * @param {Object} relation
- * @param {Object} query
- * @return {Object} Returns modified query.
- * @api public
- */
-
-plugin.relationQuery = function(relation, query) {
-  var params = relation.params;
-  if (params.through) {
-    if (typeof params.through != 'string') {
-      params.through = params.through.tableName;
-    }
-    query.innerJoin = {};
-    query.innerJoin[params.through] = {};
-    query.innerJoin[params.through][params.fromKey] = '$' + params.model.tableName + '.' + params.model.primaryKey + '$';
-    query.where[params.through + '.' + params.foreignKey] = query.related.primary();
-  }
-  else {
-    query.where[params.foreignKey] = query.related.primary();
-  }
-  delete query.related;
-  return query;
-};
-
-/**
- * Preprocess values.
- *
- * @param {Array} values
- * @return {Array}
- * @api private
- */
-
-plugin.preprocessValues = function(values) {
-  for (var key in values) {
-    if (this.attrs[key].dataFormatter) {
-      values[key] = this.attrs[key].dataFormatter(values[key], this);
-    }
-    else if (values[key] instanceof Date) {
-      values[key] = Math.floor(values[key].getTime() / 1000);
-    }
-    else if (typeof values[key] === 'object') {
-      values[key] = JSON.stringify(values[key]);
-    }
-    else if (typeof values[key] === 'boolean') {
-      values[key] = values[key] ? 1 : 'NULL';
-    }
-    else if (values[key] === undefined) {
-      delete values[key];
-    }
-  }
-  return values;
 };
 
 /**
@@ -456,7 +460,7 @@ plugin.preprocessValues = function(values) {
  * @api private
  */
 
-plugin.queryFormat = function(query, values) {
+function queryFormat(query, values) {
   if (!values || !values.length) return query;
   return query.replace(/\$\d+/g, function(match) {
     var i = Number(String(match).substr(1)) - 1;
@@ -474,7 +478,7 @@ plugin.queryFormat = function(query, values) {
 function configureConnection(connection) {
   // Set query value escape character to `$1, $2, $3..` to conform to
   // mongo-sql's query value escape character.
-  connection.config.queryFormat = plugin.queryFormat;
+  connection.config.queryFormat = queryFormat;
   // Enable ANSI_QUOTES for compatibility with queries generated by mongo-sql
   connection.query('SET SESSION sql_mode=ANSI_QUOTES', [], function(err) {
     if (err) throw err;
