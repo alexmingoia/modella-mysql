@@ -4,11 +4,10 @@
 
 var should = require('should');
 var modella = require('modella');
-
-var mysql;
+var mysql = require('..');
 
 var settings = {
-  host: process.env.NODE_TEST_MYSQL_ADDRESS || '127.0.0.1',
+  host: process.env.NODE_TEST_MYSQL_HOST || '127.0.0.1',
   user: process.env.NODE_TEST_MYSQL_USER || 'root',
   password: process.env.NODE_TEST_MYSQL_PASSWORD || '',
   port: process.env.NODE_TEST_MYSQL_PORT || 3306,
@@ -16,14 +15,13 @@ var settings = {
 };
 
 describe('module', function(done) {
-  it('should export plugin factory', function(done) {
-    mysql = require('..');
+  it('exports plugin factory', function(done) {
     should.exist(mysql);
     mysql.should.be.a('function');
     done();
   });
 
-  it('should construct new mysql plugins', function(done) {
+  it('constructs new mysql plugins', function(done) {
     var plugin = mysql(settings);
     should.exist(plugin);
     plugin.should.be.a('function');
@@ -32,32 +30,35 @@ describe('module', function(done) {
 });
 
 describe('plugin', function() {
-  it('should extend Model with plugin methods', function(done) {
+  it('extends Model with plugin methods', function(done) {
     var User = modella('User').attr('id').attr('name');
     User.use(mysql(settings));
+    User.should.have.property('buildSQL');
+    User.should.have.property('query');
+    User.should.have.property('find');
+    User.should.have.property('get');
+    User.should.have.property('all');
     User.should.have.property('save');
     User.should.have.property('update');
     User.should.have.property('remove');
     done();
   });
 
-  it('should expose db connection on model', function(done) {
+  it('exposes db connection on model', function(done) {
     var User = modella('User').attr('id').attr('name');
     User.use(mysql(settings));
     User.should.have.property('db');
     User.db.should.have.property('query');
+    User.should.have.property('query');
     done();
   });
 });
 
 describe('Model', function() {
-  var User = modella('User').attr('id').attr('name');
-  var Post = modella('Post').attr('id').attr('title').attr('user_id');
+  var User, Post;
 
   before(function(done) {
-    User.use(require('..')(settings));
-    Post.use(require('..')(settings));
-    User.db.query(
+    settings.pool.query(
       'CREATE DATABASE IF NOT EXISTS `modella_test`; ' +
       'USE `modella_test`; ' +
       'CREATE TABLE IF NOT EXISTS `users` (' +
@@ -73,7 +74,7 @@ describe('Model', function() {
       'REFERENCES `users` (`id`) ON DELETE CASCADE); ',
       function(err) {
         if (err) return done(err);
-        User.db.on('connection', function(connection) {
+        settings.pool.on('connection', function(connection) {
           connection.query('USE `modella_test`');
         });
         done();
@@ -81,8 +82,23 @@ describe('Model', function() {
     );
   });
 
+  after(function(done) {
+    settings.pool.query('DROP DATABASE IF EXISTS modella_test', function(err) {
+      if (err) return done(err);
+      done();
+    });
+  });
+
+  beforeEach(function(done) {
+    User = modella('User').attr('id').attr('name');
+    Post = modella('Post').attr('id').attr('title').attr('user_id');
+    User.use(mysql(settings));
+    Post.use(mysql(settings));
+    done();
+  });
+
   afterEach(function(done) {
-    User.db.query(
+    settings.pool.query(
       'DELETE FROM `users` WHERE 1',
       function(err) {
         if (err) return done(err);
@@ -92,7 +108,7 @@ describe('Model', function() {
   });
 
   describe('.hasMany', function() {
-    it('should define proto methods', function(done) {
+    it('defines proto methods', function(done) {
       User.hasMany('posts', { model: Post, foreignKey: 'user_id' });
       var user = new User({ name: 'alex' });
       user.should.have.property('posts');
@@ -102,7 +118,7 @@ describe('Model', function() {
       done();
     });
 
-    it('should create new related models', function(done) {
+    it('creates new related models successfully', function(done) {
       User.hasMany('posts', { model: Post, foreignKey: 'user_id' });
       var user = new User({ name: 'alex' });
       user.save(function(err) {
@@ -117,7 +133,7 @@ describe('Model', function() {
   });
 
   describe('.belongsTo', function() {
-    it('should define proto methods', function(done) {
+    it('defines proto methods', function(done) {
       User.belongsTo(Post, { as: 'author', foreignKey: 'user_id' });
       var post = new Post({ title: "alex's post" });
       post.should.have.property('author');
@@ -127,7 +143,7 @@ describe('Model', function() {
   });
 
   describe('.hasAndBelongsToMany', function() {
-    it('should define proto methods', function(done) {
+    it('defines proto methods', function(done) {
       User.hasAndBelongsToMany('posts', { as: 'author', model: Post, foreignKey: 'user_id' });
       var user = new User({ name: 'alex' });
       user.should.have.property('posts');
@@ -142,7 +158,7 @@ describe('Model', function() {
   });
 
   describe('.all', function() {
-    it('should find all models successfully', function(done) {
+    it('finds all models successfully', function(done) {
       var userA = new User({name: 'alex'});
       var userB = new User({name: 'jeff'});
       userA.save(function(err) {
@@ -162,10 +178,46 @@ describe('Model', function() {
         });
       });
     });
+
+    it('passes errors to callback', function(done) {
+      var user = new User({ name: 'alex' });
+      user.save(function(err) {
+        if (err) return done(err);
+        var query = User.db.query;
+        User.db.query = function(statement, values, callback) {
+          callback(new Error('error finding users.'));
+        };
+        User.all(
+          { where: { $or: { id: user.primary(), name: "alex" }}},
+          function(err, found) {
+            User.db.query = query;
+            should.exist(err);
+            err.should.have.property('message', 'error finding users.');
+            done();
+          }
+        );
+      });
+    });
+
+    it("uses attribute definition's columnName in queries", function(done) {
+      User = modella('User').attr('id').attr('fullname', {
+        type: 'string',
+        length: 255,
+        columnName: 'name'
+      });
+      User.use(require('..')(settings));
+      var user = new User({ fullname: 'alex' });
+      user.save(function(err) {
+        if (err) return done(err);
+        user.should.have.property('fullname');
+        user.fullname().should.equal('alex');
+        done();
+      });
+    });
   });
 
   describe('.count', function() {
-    it('should count models successfully', function(done) {
+    it('counts models successfully', function(done) {
       var userA = new User({name: 'alex'});
       var userB = new User({name: 'jeff'});
       userA.save(function(err) {
@@ -184,10 +236,30 @@ describe('Model', function() {
         });
       });
     });
+
+    it('passes errors to callback', function(done) {
+      var user = new User({ name: 'alex' });
+      user.save(function(err) {
+        if (err) return done(err);
+        var query = User.db.query;
+        User.db.query = function(statement, values, callback) {
+          callback(new Error('error counting users.'));
+        };
+        User.count(
+          { where: { $or: { id: user.primary(), name: "alex" }}},
+          function(err, found) {
+            User.db.query = query;
+            should.exist(err);
+            err.should.have.property('message', 'error counting users.');
+            done();
+          }
+        );
+      });
+    });
   });
 
   describe('.find', function() {
-    it('should find model by id successfully', function(done) {
+    it('finds model by id successfully', function(done) {
       var user = new User({name: 'alex'});
       user.save(function(err) {
         User.find(user.primary(), function(err, found) {
@@ -198,10 +270,27 @@ describe('Model', function() {
         });
       });
     });
+
+    it('passes errors to callback', function(done) {
+      var user = new User({ name: 'alex' });
+      user.save(function(err) {
+        if (err) return done(err);
+        var query = User.db.query;
+        User.db.query = function(statement, values, callback) {
+          callback(new Error('error finding user.'));
+        };
+        User.find(user.primary(), function(err, found) {
+          User.db.query = query;
+          should.exist(err);
+          err.should.have.property('message', 'error finding user.');
+          done();
+        });
+      });
+    });
   });
 
   describe('#save', function() {
-    it('should insert new record successfully', function(done) {
+    it('saves new model successfully', function(done) {
       var user = new User({name: 'alex'});
       user.save(function(err) {
         should.not.exist(err);
@@ -209,10 +298,24 @@ describe('Model', function() {
         done();
       });
     });
+
+    it('passes errors to callback', function(done) {
+      var user = new User({ name: 'alex' });
+      var query = User.db.query;
+      User.db.query = function(statement, values, callback) {
+        callback(new Error('error saving user.'));
+      };
+      user.save(function(err) {
+        User.db.query = query;
+        should.exist(err);
+        err.should.have.property('message', 'error saving user.');
+        done();
+      });
+    });
   });
 
   describe('#update', function() {
-    it('should update a record successfully', function(done) {
+    it('updates model successfully', function(done) {
       var user = new User({name: 'alex'});
       user.save(function(err) {
         user.name('jeff');
@@ -223,10 +326,28 @@ describe('Model', function() {
         });
       });
     });
+
+    it('passes errors to callback', function(done) {
+      var user = new User({ name: 'alex' });
+      user.save(function(err) {
+        if (err) return done(err);
+        user.name('jeff');
+        var query = User.db.query;
+        User.db.query = function(statement, values, callback) {
+          callback(new Error('error updating user.'));
+        };
+        user.save(function(err) {
+          User.db.query = query;
+          should.exist(err);
+          err.should.have.property('message', 'error updating user.');
+          done();
+        });
+      });
+    });
   });
 
   describe('#remove', function() {
-    it('should remove a record successfully', function(done) {
+    it('removes model successfully', function(done) {
       var user = new User({name: 'alex'});
       user.save(function(err) {
         user.remove(function(err) {
@@ -235,12 +356,22 @@ describe('Model', function() {
         });
       });
     });
-  });
 
-  after(function(done) {
-    User.db.query('DROP DATABASE IF EXISTS modella_test', function(err) {
-      if (err) return done(err);
-      done();
+    it('passes errors to callback', function(done) {
+      var user = new User({ name: 'alex' });
+      user.save(function(err) {
+        if (err) return done(err);
+        var query = User.db.query;
+        User.db.query = function(statement, values, callback) {
+          callback(new Error('error removing user.'));
+        };
+        user.remove(function(err) {
+          User.db.query = query;
+          should.exist(err);
+          err.should.have.property('message', 'error removing user.');
+          done();
+        });
+      });
     });
   });
 });

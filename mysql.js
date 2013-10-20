@@ -11,9 +11,9 @@
  * Dependencies.
  */
 
-var buildSQL = require('mongo-sql').sql
-  , extend   = require('extend')
+var extend   = require('extend')
   , lingo    = require('lingo').en
+  , mosql    = require('mongo-sql')
   , mysql    = require('mysql');
 
 module.exports = plugin;
@@ -222,13 +222,21 @@ Model.hasAndBelongsToMany = function(name, params) {
   return this;
 };
 
+/**
+ * Find model with given `id`.
+ *
+ * @param {Number|Object} id or query
+ * @param {Function(err, model)} callback
+ * @api public
+ */
+
 Model.find = Model.get = function(id, callback) {
   var query = typeof id == 'object' ? id : { where: { id: id } };
-  var sql = buildSQL(prepareQuery(this, extend({
+  var sql = this.buildSQL(extend({
     type: 'select',
     table: this.tableName
-  }, query)));
-  this.db.query(sql.toString(), sql.values, function(err, rows, fields) {
+  }, query));
+  this.query(sql.query, sql.values, function(err, rows, fields) {
     if (err) return callback(err);
     var model;
     if (rows && rows.length) {
@@ -238,7 +246,7 @@ Model.find = Model.get = function(id, callback) {
     var error = new Error("Could not find " + id + ".");
     error.code = error.status = 404;
     return callback(error);
-  }.bind(this));
+  });
 };
 
 /**
@@ -250,11 +258,11 @@ Model.find = Model.get = function(id, callback) {
  */
 
 Model.all = function(query, callback) {
-  var sql = buildSQL(prepareQuery(this, extend({
+  var sql = this.buildSQL(extend({
     type: 'select',
     table: this.tableName
-  }, query)));
-  this.db.query(sql.toString(), sql.values, function(err, rows, fields) {
+  }, query));
+  this.query(sql.query, sql.values, function(err, rows, fields) {
     if (err) return callback(err);
     var collection = [];
     if (rows && rows.length) {
@@ -263,7 +271,7 @@ Model.all = function(query, callback) {
       }
     }
     callback(null, collection);
-  }.bind(this));
+  });
 };
 
 /**
@@ -275,16 +283,16 @@ Model.all = function(query, callback) {
  */
 
 Model.count = function(query, callback) {
-  var sql = buildSQL(prepareQuery(this, extend({
+  var sql = this.buildSQL(extend({
     type: 'select',
     columns: ['count(*)'],
     table: this.tableName
-  }, query)));
-  this.db.query(sql.toString(), sql.values, function(err, rows, fields) {
+  }, query));
+  this.query(sql.query, sql.values, function(err, rows, fields) {
     if (err) return callback(err);
     var count = rows[0]['count(*)'];
     callback(null, count);
-  }.bind(this));
+  });
 };
 
 /**
@@ -295,16 +303,17 @@ Model.count = function(query, callback) {
  */
 
 Model.save = function(fn) {
-  var sql = buildSQL(prepareQuery(this.model, {
+  var sql = this.model.buildSQL({
     type: 'insert',
     table: this.model.tableName,
     values: this.toJSON()
-  }));
-  this.model.db.query(sql.toString(), sql.values, function(err, rows, fields) {
+  });
+  this.model.query(sql.query, sql.values, function(err, rows, fields) {
     if (err) return fn(err);
-    this.primary(rows.insertId);
-    fn(null, fields);
-  }.bind(this));
+    var body = { };
+    body[this.primaryKey] = rows.insertId;
+    fn(null, body);
+  });
 };
 
 /**
@@ -318,16 +327,16 @@ Model.update = function(fn) {
   var body = this.changed();
   var where = {};
   where[this.model.primaryKey] = this.primary();
-  var sql = buildSQL(prepareQuery(this.model, {
+  var sql = this.model.buildSQL({
     type: 'update',
     table: this.model.tableName,
     where: where,
     values: body
-  }));
-  this.model.db.query(sql.toString(), sql.values, function(err, rows, fields) {
+  });
+  this.model.query(sql.query, sql.values, function(err, rows, fields) {
     if (err) return fn(err);
     fn(null, fields);
-  }.bind(this));
+  });
 };
 
 /**
@@ -344,11 +353,62 @@ Model.remove = function(fn) {
     where: {}
   };
   query.where[this.model.primaryKey] = this.primary();
-  var sql = buildSQL(prepareQuery(this.model, query));
-  this.model.db.query(sql.toString(), sql.values, function(err, rows) {
+  var sql = this.model.buildSQL(query);
+  this.model.query(sql.query, sql.values, function(err, rows) {
     if (err) return fn(err);
     fn();
-  }.bind(this));
+  });
+};
+
+/**
+ * Wrapper for `Model.db.query`. Transforms column/field names in results.
+ */
+
+Model.query = function(statement, values, callback) {
+  var Model = this;
+  Model.db.query(statement, values, function(err, rows, fields) {
+    if (err) return callback(err);
+    if (rows.length) {
+      var keys = Object.keys(fields);
+      var columnNamesToAttrNames = {};
+      for (var attr in Model.attrs) {
+        var columnName = Model.attrs[attr].columnName;
+        if (columnName) columnNamesToAttrNames[columnName] = attr;
+      }
+      var columnNames = Object.keys(columnNamesToAttrNames);
+      if (columnNames.length) {
+        rows.forEach(function(row, i) {
+          columnNames.forEach(function(columnName) {
+            if (row[columnName]) {
+              rows[i][attr] = rows[i][columnName];
+              delete rows[i][columnName];
+            }
+          });
+        });
+      }
+    }
+    callback.call(Model, err, rows, fields);
+  });
+};
+
+/**
+ * Build SQL query using MoSQL.
+ *
+ * @link https://github.com/goodybag/mongo-sql
+ */
+
+Model.buildSQL = function(query) {
+  var sql = mosql.sql(prepareQuery(this, query));
+  for (var attr in this.attrs) {
+    var columnName = this.attrs[attr].columnName;
+    if (columnName) {
+      sql.query = sql.query.replace(
+        new RegExp('"' + attr + '"', 'g'),
+        '"' + columnName + '"'
+      );
+    }
+  }
+  return sql;
 };
 
 /**
@@ -443,6 +503,15 @@ function prepareQuery(Model, query) {
     }
   }
   return query;
+};
+
+/**
+ * Handles transformation of custom column names.
+ */
+
+function handleResult(done) {
+  return function(err, rows, fields) {
+  };
 };
 
 /**
