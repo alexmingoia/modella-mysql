@@ -179,9 +179,18 @@ Event.attr('date', { dataFormatter: function(value, Event) {
 Tests are written with [mocha](https://github.com/visionmedia/mocha) and
 [should](https://github.com/visionmedia/should.js) using BDD-style assertions.
 
-Run them with npm:
+Tests require an accessible MySQL server. Configure the database using the
+following set of environment variables:
 
-```shell
+```sh
+export NODE_TEST_MYSQL_HOST="127.0.0.1"
+export NODE_TEST_MYSQL_USER="root"
+export NODE_TEST_MYSQL_PASSWORD=""
+export NODE_TEST_MYSQL_PORT=3306
+```
+Run the tests with npm:
+
+```sh
 npm test
 ```
 
