@@ -423,7 +423,7 @@ proto.toJSON = function() {
   var attrs = this.model.attrs;
   var json = this._toJSON.call(this);
   for (var attr in json) {
-    if (attrs[attr].type == 'date') {
+    if (attrs[attr].type == 'date' && this[attr] instanceof Date) {
       json[attr] = Math.ceil(this[attr]().getTime() / 1000);
     }
   }
