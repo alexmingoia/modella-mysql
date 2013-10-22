@@ -454,7 +454,7 @@ function prepareQuery(Model, query) {
     query.where = {};
     for (var param in query) {
       if (query.hasOwnProperty(param)) {
-        if (!param.match(/(table|type|values|related|where|offset|limit|order|groupBy)$/)) {
+        if (!param.match(/(columns|table|type|values|related|where|offset|limit|order|groupBy)$/)) {
           query.where[param] = query[param];
           delete query[param];
         }
