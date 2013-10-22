@@ -1,7 +1,7 @@
 {
   "name": "modella-mysql",
   "description": "MySQL storage plugin and persistence layer for Modella.",
-  "version": "0.7.0",
+  "version": "0.7.1",
   "keywords": ["sql", "mysql", "modella", "plugin"],
   "author": "Alex Mingoia <talk@alexmingoia.com>",
   "dependencies": {
