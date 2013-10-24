@@ -60,9 +60,13 @@ function plugin(settings) {
     Model.on('initialize', function(model) {
       // Transform UNIX timestamps to Date object
       for (var key in model.attrs) {
-        if (model.model.attrs[key].type == 'date'
-        && typeof model.attrs[key] == 'number') {
-          model.attrs[key] = new Date(model.attrs[key] * 1000);
+        if (model.model.attrs[key].type == 'date') {
+          if (typeof model.attrs[key] == 'number') {
+            model.attrs[key] = new Date(model.attrs[key] * 1000);
+          }
+          if (typeof model.attrs[key] == 'string') {
+            model.attrs[key] = new Date(model.attrs[key]);
+          }
         }
       }
     });
@@ -485,7 +489,7 @@ function prepareQuery(Model, query) {
   if (query.values) {
     var values = query.values;
     for (var key in values) {
-      if (Model.attrs[key].dataFormatter) {
+      if (Model.attrs[key] && Model.attrs[key].dataFormatter) {
         values[key] = Model.attrs[key].dataFormatter(values[key], Model);
       }
       else if (values[key] instanceof Date) {
@@ -502,6 +506,8 @@ function prepareQuery(Model, query) {
       }
     }
   }
+  if (!query.table) query.table = Model.tableName;
+  if (!query.type) query.type = 'select';
   return query;
 };
 
