@@ -7,7 +7,7 @@
   "dependencies": {
     "extend": "1.2.1",
     "lingo": "0.0.5",
-    "mongo-sql": "2.1.9",
+    "mongo-sql": "2.2.6",
     "mysql": "2.0.0-alpha9"
   },
   "devDependencies": {
