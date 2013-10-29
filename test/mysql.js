@@ -61,17 +61,17 @@ describe('Model', function() {
     settings.pool.query(
       'CREATE DATABASE IF NOT EXISTS `modella_test`; ' +
       'USE `modella_test`; ' +
-      'CREATE TABLE IF NOT EXISTS `users` (' +
+      'CREATE TABLE IF NOT EXISTS `user` (' +
       '`id` int(11) unsigned NOT NULL AUTO_INCREMENT, ' +
       '`name` varchar(255) NOT NULL DEFAULT \'\', ' +
       'PRIMARY KEY (`id`)); ' +
-      'CREATE TABLE IF NOT EXISTS `posts` (' +
+      'CREATE TABLE IF NOT EXISTS `post` (' +
       '`id` int(11) unsigned NOT NULL AUTO_INCREMENT, ' +
       '`user_id` int(11) unsigned DEFAULT NULL, ' +
       '`title` varchar(255) NOT NULL DEFAULT \'\', ' +
       'PRIMARY KEY (`id`), KEY `user_id` (`user_id`), ' +
-      'CONSTRAINT `posts_ibfk_1` FOREIGN KEY (`user_id`) ' +
-      'REFERENCES `users` (`id`) ON DELETE CASCADE); ',
+      'CONSTRAINT `post_ibfk_1` FOREIGN KEY (`user_id`) ' +
+      'REFERENCES `user` (`id`) ON DELETE CASCADE); ',
       function(err) {
         if (err) return done(err);
         settings.pool.on('connection', function(connection) {
@@ -99,7 +99,7 @@ describe('Model', function() {
 
   afterEach(function(done) {
     settings.pool.query(
-      'DELETE FROM `users` WHERE 1',
+      'DELETE FROM `user` WHERE 1',
       function(err) {
         if (err) return done(err);
         done();
@@ -150,9 +150,6 @@ describe('Model', function() {
       user.posts.should.be.a('function');
       user.posts.should.have.property('create');
       user.posts.create.should.be.a('function');
-      var post = new Post({ title: "alex's post" });
-      post.should.have.property('author');
-      post.author.should.be.a('function');
       done();
     });
   });

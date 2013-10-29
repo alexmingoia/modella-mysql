@@ -66,7 +66,7 @@ User.count({ where: { city: 'San Francisco' }}, function(err, count) {
 Define a "has many" relationship with given `name` and `params`.
 
 ```javascript
-User.hasMany('posts', { model: Post, foreignKey: 'userId' });
+User.hasMany('posts', { model: Post, foreignKey: 'user_id' });
 
 // Creates methods:
 
@@ -82,7 +82,7 @@ var post = user.posts.create();
 Define a "belongs to" relationship with given `Model`.
 
 ```javascript
-User.belongsTo(Post, { as: 'author', foreignKey: 'userId' });
+User.belongsTo(Post, { as: 'author', foreignKey: 'user_id' });
 
 // Creates method:
 
@@ -96,10 +96,11 @@ post.author(function(err, user) {
 Define a "has and belongs to many" relationship with given `name` and `params`.
 
 ```javascript
-User.hasAndBelongsToMany('posts', {
-  as: 'author',
-  model: Post,
-  foreignKey: 'userId'
+User.hasAndBelongsToMany(Post, {
+  as: 'posts',
+  through: PostUser,
+  fromKey: 'user_id',
+  toKey: 'post_id'
 });
 
 // Creates methods:
