@@ -7,8 +7,8 @@ MySQL persistence layer for [Modella](https://github.com/modella/modella).
 
 ## Installation
 
-```shell
-npm install --global modella-mysql
+```sh
+sh npm install --global modella-mysql
 ```
 
 ## Example
@@ -31,7 +31,7 @@ User.use(mysql({
 
 Get all models using given `query`.
 
-```javascript
+```javascriptdd
 User.find({ where: { city: 'San Francisco' }}, function(err, result) {
   console.log(result);
   // => { data: [...], limit: 50, offset: 0, total: 43834 }
@@ -160,16 +160,22 @@ definition. For example:
 User
   .attr('id')
   .attr('firstName', {
-    type: String,
+    type: 'string',
     length: 255,
     columnName: 'first_name'
   })
   .attr('lastName', {
-    type: String,
+    type: 'string',
     length: 255,
     columnName: 'last_name'
   });
 ```
+
+### Date types
+
+Attributes with `type: "date"` will be handled based on the `columnType`
+property. This property can either be "datetime", "timestamp", or "integer",
+corresponding to MySQL column type.
 
 ### Data formatters
 
