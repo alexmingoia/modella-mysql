@@ -167,8 +167,11 @@ describe('Model', function() {
             function(err, found) {
               if (err) return done(err);
               should.exist(found);
-              found.should.be.an.instanceOf(Array);
-              found.pop().primary().should.equal(userB.primary());
+              found.should.have.property('data');
+              found.data.should.be.instanceOf(Array);
+              found.should.have.property('limit', 50);
+              found.should.have.property('offset');
+              found.data.pop().primary().should.equal(userB.primary());
               done();
             }
           );
@@ -209,48 +212,6 @@ describe('Model', function() {
         user.should.have.property('fullname');
         user.fullname().should.equal('alex');
         done();
-      });
-    });
-  });
-
-  describe('.count', function() {
-    it('counts models successfully', function(done) {
-      var userA = new User({name: 'alex'});
-      var userB = new User({name: 'jeff'});
-      userA.save(function(err) {
-        if (err) return done(err);
-        userB.save(function(err) {
-          if (err) return done(err);
-          User.count(
-            { where: { $or: { id: userA.primary(), name: "jeff" }}},
-            function(err, found) {
-              if (err) return done(err);
-              should.exist(found);
-              found.should.equal(2);
-              done();
-            }
-          );
-        });
-      });
-    });
-
-    it('passes errors to callback', function(done) {
-      var user = new User({ name: 'alex' });
-      user.save(function(err) {
-        if (err) return done(err);
-        var query = User.db.query;
-        User.db.query = function(statement, values, callback) {
-          callback(new Error('error counting users.'));
-        };
-        User.count(
-          { where: { $or: { id: user.primary(), name: "alex" }}},
-          function(err, found) {
-            User.db.query = query;
-            should.exist(err);
-            err.should.have.property('message', 'error counting users.');
-            done();
-          }
-        );
       });
     });
   });

@@ -2,13 +2,19 @@
   "name": "modella-mysql",
   "description": "MySQL storage plugin and persistence layer for Modella.",
   "version": "0.7.2",
-  "keywords": ["sql", "mysql", "modella", "plugin"],
+  "keywords": [
+    "sql",
+    "mysql",
+    "modella",
+    "plugin"
+  ],
   "author": "Alex Mingoia <talk@alexmingoia.com>",
   "dependencies": {
     "extend": "1.2.1",
     "lingo": "0.0.5",
     "mongo-sql": "2.2.6",
-    "mysql": "2.0.0-alpha9"
+    "mysql": "2.0.0-alpha9",
+    "async": "~0.2.9"
   },
   "devDependencies": {
     "mocha": "1.12.1",

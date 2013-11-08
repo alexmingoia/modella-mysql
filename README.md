@@ -32,10 +32,20 @@ User.use(mysql({
 Get all models using given `query`.
 
 ```javascript
-User.find({ where: { city: 'San Francisco' }}, function(err, users) {
-  // ...
+User.find({ where: { city: 'San Francisco' }}, function(err, result) {
+  console.log(result);
+  // => { data: [...], limit: 50, offset: 0, total: 43834 }
 });
 ```
+
+The callback result is an object with the following properties:
+
+`data` array of found models  
+`limit` maximum number of models returned (page size)  
+`offset` offset for pagination  
+`total` total number of models found with query
+
+The `limit`, `offset`, and `total` properties are used in building pagination.
 
 ### Model.find(id|query, callback)
 
