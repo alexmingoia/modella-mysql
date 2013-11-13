@@ -1,7 +1,7 @@
 # modella-mysql
 
-[![Build Status](https://secure.travis-ci.org/modella/mysql.png?branch=master)](http://travis-ci.org/modella/mysql)
-[![Dependency Status](https://david-dm.org/modella/mysql.png)](http://david-dm.org/modella/mysql)
+[![Build Status](https://secure.travis-ci.org/alexmingoia/modella-mysql.png?branch=master)](http://travis-ci.org/alexmingoia/modella-mysql)
+[![Dependency Status](https://david-dm.org/alexmingoia/modella-mysql.png)](http://david-dm.org/alexmingoia/modella-mysql)
 
 MySQL persistence layer for [Modella](https://github.com/modella/modella).
 

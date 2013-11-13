@@ -2,10 +2,10 @@
   "name": "modella-mysql",
   "description": "MySQL storage plugin and persistence layer for Modella.",
   "author": "Alex Mingoia <talk@alexmingoia.com>",
-  "homepage": "https://github.com/modella/mysql",
+  "homepage": "https://github.com/alexmingoia/modella-mysql",
   "repo": {
     "type": "git",
-    "url": "git://github.com/modella/mysql.git"
+    "url": "git://github.com/alexmingoia/modella-mysql.git"
   },
   "keywords": [
     "sql",
@@ -13,7 +13,7 @@
     "modella",
     "plugin"
   ],
-  "version": "0.10.1",
+  "version": "0.10.2",
   "dependencies": {
     "extend": "1.2.1",
     "lingo": "0.0.5",
