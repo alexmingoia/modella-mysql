@@ -8,7 +8,7 @@ MySQL persistence layer for [Modella](https://github.com/modella/modella).
 ## Installation
 
 ```sh
-sh npm install --global modella-mysql
+sh npm install modella-mysql
 ```
 
 ## Example
@@ -142,15 +142,14 @@ The `type`, `columns`, and `table` properties are handled by modella-mysql.
 
 ### Custom table / field names
 
-Custom table names are provided by the `Model.tableName` attribute. Be sure to
-declare it before using the plugin. For example:
+Custom table names are specified using the `tableName` setting. For example:
 
 ```javascript
-var User = modella('User');
-
-User.tableName = 'people';
-
-User.(mysql(settings));
+User.use(mysql({
+  database: 'mydb',
+  user: 'root',
+  tableName: 'users'
+}));
 ```
 
 Custom field names are provided by a `columnName` property in the attribute
