@@ -61,16 +61,6 @@ User.find({ where: { name: 'Alex' }}, function(err, user) {
 });
 ```
 
-### Model.count(query, callback)
-
-Count all models using given `query`.
-
-```javascript
-User.count({ where: { city: 'San Francisco' }}, function(err, count) {
-  // ...
-});
-```
-
 ### Model.hasMany(name, params)
 
 Define a "has many" relationship with given `name` and `params`.
