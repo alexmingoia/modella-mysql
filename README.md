@@ -8,7 +8,7 @@ MySQL persistence layer for [Modella](https://github.com/modella/modella).
 ## Installation
 
 ```sh
-sh npm install modella-mysql
+npm install modella-mysql
 ```
 
 ## Example
@@ -31,7 +31,7 @@ User.use(mysql({
 
 Get all models using given `query`.
 
-```javascriptdd
+```javascript
 User.find({ where: { city: 'San Francisco' }}, function(err, result) {
   console.log(result);
   // => { data: [...], limit: 50, offset: 0, total: 43834 }
@@ -59,6 +59,27 @@ User.find(5, function(err, user) {
 User.find({ where: { name: 'Alex' }}, function(err, user) {
   user.name(); // => Alex
 });
+```
+
+### Model.all(query, callback)
+
+Find models using given `query`.
+
+```javascript
+User.all({ }, function(err, users) {
+  // ...
+});
+```
+
+The `users` object looks like:
+
+```json
+{
+  "total": 32443,
+  "limit": 50,
+  "offset": 0,
+  "data": [user, user, ...]
+}
 ```
 
 ### Model.hasMany(name, params)
