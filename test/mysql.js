@@ -59,6 +59,7 @@ describe('Model', function() {
 
   before(function(done) {
     settings.pool.query(
+      'DROP DATABASE IF EXISTS `modella_test`; ' +
       'CREATE DATABASE IF NOT EXISTS `modella_test`; ' +
       'USE `modella_test`; ' +
       'CREATE TABLE IF NOT EXISTS `user` (' +

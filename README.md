@@ -116,6 +116,80 @@ post.author(function(err, user) {
 });
 ```
 
+## Events
+
+### mysql before save
+
+```javascript
+User.on('mysql before save', function(model, attrs) {
+  // ...
+});
+
+user.on('mysql before save', function(attrs) {
+  // ...
+});
+```
+
+### mysql after save
+
+```javascript
+User.on('mysql after save', function(model, values) {
+  // ...
+});
+
+user.on('mysql after save', function(values) {
+  // ...
+});
+```
+
+### mysql before update
+
+```javascript
+User.on('mysql before update', function(model, attrs) {
+  // ...
+});
+
+user.on('mysql before update', function(attrs) {
+  // ...
+});
+```
+
+### mysql after update
+
+```javascript
+User.on('mysql after update', function(model, values) {
+  // ...
+});
+
+user.on('mysql after update', function(values) {
+  // ...
+});
+```
+
+### mysql before remove
+
+```javascript
+User.on('mysql before remove', function(model) {
+  // ...
+});
+
+user.on('mysql before remove', function() {
+  // ...
+});
+```
+
+### mysql after remove
+
+```javascript
+User.on('mysql after remove', function(model) {
+  // ...
+});
+
+user.on('mysql after remove', function() {
+  // ...
+});
+```
+
 ### exports.adapter
 
 [MySQL](https://github.com/felixge/node-mysql) module.
