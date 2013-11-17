@@ -66,7 +66,7 @@ User.find({ where: { name: 'Alex' }}, function(err, user) {
 Find models using given `query`.
 
 ```javascript
-User.all({ }, function(err, users) {
+User.all({ $gt: { created_at: lastWeek} }, function(err, users) {
   // ...
 });
 ```
