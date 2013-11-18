@@ -27,6 +27,17 @@ User.use(mysql({
 
 ## API
 
+### exports(settings, options)
+
+Create a new Modella plugin with the given database `settings` and `options`.
+
+`settings` same as settings for
+[node-mysql](https://github.com/felixge/node-mysql/)
+
+`options`
+* `tableName` The table for this model. Defaults to singularized model name.
+* `maxLimit` The maximum number of records to select at once. Default is 200.
+
 ### Model.all(query, callback)
 
 Get all models using given `query`.
@@ -154,11 +165,11 @@ user.on('mysql before save', function(attrs) {
 ### mysql after save
 
 ```javascript
-User.on('mysql after save', function(model, values) {
+User.on('mysql after save', function(model) {
   // ...
 });
 
-user.on('mysql after save', function(values) {
+user.on('mysql after save', function() {
   // ...
 });
 ```
@@ -166,11 +177,11 @@ user.on('mysql after save', function(values) {
 ### mysql before update
 
 ```javascript
-User.on('mysql before update', function(model, attrs) {
+User.on('mysql before update', function(model) {
   // ...
 });
 
-user.on('mysql before update', function(attrs) {
+user.on('mysql before update', function() {
   // ...
 });
 ```
@@ -178,11 +189,11 @@ user.on('mysql before update', function(attrs) {
 ### mysql after update
 
 ```javascript
-User.on('mysql after update', function(model, values) {
+User.on('mysql after update', function(model) {
   // ...
 });
 
-user.on('mysql after update', function(values) {
+user.on('mysql after update', function() {
   // ...
 });
 ```
@@ -227,12 +238,13 @@ The `type`, `columns`, and `table` properties are handled by modella-mysql.
 
 ### Custom table / field names
 
-Custom table names are specified using the `tableName` setting. For example:
+Custom table names are specified using the `tableName` option. For example:
 
 ```javascript
 User.use(mysql({
   database: 'mydb',
-  user: 'root',
+  user: 'root'
+}, {
   tableName: 'users'
 }));
 ```
