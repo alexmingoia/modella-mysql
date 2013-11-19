@@ -6,12 +6,16 @@ var should = require('should');
 var modella = require('modella');
 var mysql = require('..');
 
-var settings = {
-  host: process.env.NODE_TEST_MYSQL_HOST || '127.0.0.1',
-  user: process.env.NODE_TEST_MYSQL_USER || 'root',
-  password: process.env.NODE_TEST_MYSQL_PASSWORD || '',
-  port: process.env.NODE_TEST_MYSQL_PORT || 3306,
-  multipleStatements: true
+var settings = {};
+
+mysql.adapter.createPool = function(settings) {
+  return {
+    on: function(event, callback) {},
+    end: function() {},
+    query: function(statement, values, done) {
+      done(null, [], {});
+    }
+  };
 };
 
 describe('module', function(done) {
@@ -57,55 +61,12 @@ describe('plugin', function() {
 describe('Model', function() {
   var User, Post;
 
-  before(function(done) {
-    settings.pool.query(
-      'DROP DATABASE IF EXISTS `modella_test`; ' +
-      'CREATE DATABASE IF NOT EXISTS `modella_test`; ' +
-      'USE `modella_test`; ' +
-      'CREATE TABLE IF NOT EXISTS `user` (' +
-      '`id` int(11) unsigned NOT NULL AUTO_INCREMENT, ' +
-      '`name` varchar(255) NOT NULL DEFAULT \'\', ' +
-      'PRIMARY KEY (`id`)); ' +
-      'CREATE TABLE IF NOT EXISTS `post` (' +
-      '`id` int(11) unsigned NOT NULL AUTO_INCREMENT, ' +
-      '`user_id` int(11) unsigned DEFAULT NULL, ' +
-      '`title` varchar(255) NOT NULL DEFAULT \'\', ' +
-      'PRIMARY KEY (`id`), KEY `user_id` (`user_id`), ' +
-      'CONSTRAINT `post_ibfk_1` FOREIGN KEY (`user_id`) ' +
-      'REFERENCES `user` (`id`) ON DELETE CASCADE); ',
-      function(err) {
-        if (err) return done(err);
-        settings.pool.on('connection', function(connection) {
-          connection.query('USE `modella_test`');
-        });
-        done();
-      }
-    );
-  });
-
-  after(function(done) {
-    settings.pool.query('DROP DATABASE IF EXISTS modella_test', function(err) {
-      if (err) return done(err);
-      done();
-    });
-  });
-
   beforeEach(function(done) {
     User = modella('User').attr('id').attr('name');
     Post = modella('Post').attr('id').attr('title').attr('user_id');
     User.use(mysql(settings));
     Post.use(mysql(settings));
     done();
-  });
-
-  afterEach(function(done) {
-    settings.pool.query(
-      'DELETE FROM `user` WHERE 1',
-      function(err) {
-        if (err) return done(err);
-        done();
-      }
-    );
   });
 
   describe('.hasMany', function() {
@@ -121,14 +82,21 @@ describe('Model', function() {
 
     it('creates new related models successfully', function(done) {
       User.hasMany('posts', { model: Post, foreignKey: 'user_id' });
-      var user = new User({ name: 'alex' });
-      user.save(function(err) {
-        var post = user.posts.create({ title: "alex's post" });
-        post.save(function(err) {
-          should.not.exist(err);
-          should.exist(post.primary());
-          done();
-        });
+      var user = new User({ id: 1, name: 'alex' });
+      var query = Post.db.query;
+      Post.db.query = function(statement, values, cb) {
+        Post.db.query = query;
+        statement.should.equal(
+          'insert into "post" ("title", "user_id") values ($1, $2)'
+        );
+        values.should.include("alex's post", 1);
+        cb(null, {insertId: 2});
+      };
+      var post = user.posts.create({ title: "alex's post" });
+      post.save(function(err) {
+        should.not.exist(err);
+        should.exist(post.primary());
+        done();
       });
     });
   });
@@ -157,27 +125,29 @@ describe('Model', function() {
 
   describe('.all', function() {
     it('finds all models successfully', function(done) {
-      var userA = new User({name: 'alex'});
-      var userB = new User({name: 'jeff'});
-      userA.save(function(err) {
-        if (err) return done(err);
-        userB.save(function(err) {
+      var userA = new User({id: 1, name: 'alex'});
+      var userB = new User({id: 2, name: 'jeff'});
+      var query = User.db.query;
+      User.db.query = function(statement, values, callback) {
+        statement.should.include(
+          'from "user" where "user"."id" = $1 or "user"."name" = $2 limit $3'
+        );
+        callback(null, [userA.attrs, userB.attrs], userB.attrs);
+      };
+      User.all(
+        { where: { $or: { id: userA.primary(), name: "jeff" }}},
+        function(err, found) {
+          User.db.query = query;
           if (err) return done(err);
-          User.all(
-            { where: { $or: { id: userA.primary(), name: "jeff" }}},
-            function(err, found) {
-              if (err) return done(err);
-              should.exist(found);
-              found.should.have.property('data');
-              found.data.should.be.instanceOf(Array);
-              found.should.have.property('limit', 50);
-              found.should.have.property('offset');
-              found.data.pop().primary().should.equal(userB.primary());
-              done();
-            }
-          );
-        });
-      });
+          should.exist(found);
+          found.should.have.property('data');
+          found.data.should.be.instanceOf(Array);
+          found.should.have.property('limit', 50);
+          found.should.have.property('offset');
+          found.data.pop().primary().should.equal(userB.primary());
+          done();
+        }
+      );
     });
 
     it('passes errors to callback', function(done) {
@@ -207,7 +177,15 @@ describe('Model', function() {
         columnName: 'name'
       });
       User.use(require('..')(settings));
-      var user = new User({ fullname: 'alex' });
+      var user = new User({ id: 1, fullname: 'alex' });
+      var query = User.db.query;
+      User.db.query = function(statement, values, cb) {
+        User.db.query = query;
+        statement.should.equal(
+          'insert into "user" ("name") values ($1)'
+        );
+        cb(null, { insertId: 1 }, {});
+      };
       user.save(function(err) {
         if (err) return done(err);
         user.should.have.property('fullname');
@@ -219,14 +197,20 @@ describe('Model', function() {
 
   describe('.find', function() {
     it('finds model by id successfully', function(done) {
-      var user = new User({name: 'alex'});
-      user.save(function(err) {
-        User.find(user.primary(), function(err, found) {
-          if (err) return done(err);
-          should.exist(found);
-          user.primary().should.equal(found.primary());
-          done();
-        });
+      var user = new User({id: 1, name: 'alex'});
+      var query = User.db.query;
+      User.db.query = function(statement, values, cb) {
+        statement.should.equal(
+          'select "user".* from "user" where "user"."id" = $1'
+        );
+        User.db.query = query;
+        cb(null, [user.attrs], {});
+      };
+      User.find(user.primary(), function(err, found) {
+        if (err) return done(err);
+        should.exist(found);
+        user.primary().should.equal(found.primary());
+        done();
       });
     });
 
@@ -251,6 +235,12 @@ describe('Model', function() {
   describe('#save', function() {
     it('saves new model successfully', function(done) {
       var user = new User({name: 'alex'});
+      var query = User.db.query;
+      User.db.query = function(statement, values, cb) {
+        User.db.query = query;
+        values.should.include('alex');
+        cb(null, { insertId: 1 }, {});
+      };
       user.save(function(err) {
         should.not.exist(err);
         should.exist(user.primary());
@@ -262,10 +252,10 @@ describe('Model', function() {
       var user = new User({ name: 'alex' });
       var query = User.db.query;
       User.db.query = function(statement, values, callback) {
+        User.db.query = query;
         callback(new Error('error saving user.'));
       };
       user.save(function(err) {
-        User.db.query = query;
         should.exist(err);
         err.should.have.property('message', 'error saving user.');
         done();
@@ -275,14 +265,21 @@ describe('Model', function() {
 
   describe('#update', function() {
     it('updates model successfully', function(done) {
-      var user = new User({name: 'alex'});
+      var user = new User({id: 1, name: 'alex'});
+      var query = User.db.query;
+      User.db.query = function(statement, values, cb) {
+        User.db.query = query;
+        statement.should.equal(
+          'update "user" set "name" = $1 where "user"."id" = $2'
+        );
+        values.should.include('jeff', 1);
+        cb(null, [], {});
+      };
+      user.name('jeff');
       user.save(function(err) {
-        user.name('jeff');
-        user.save(function(err) {
-          should.not.exist(err);
-          user.name().should.equal('jeff');
-          done();
-        });
+        should.not.exist(err);
+        user.name().should.equal('jeff');
+        done();
       });
     });
 
@@ -307,29 +304,33 @@ describe('Model', function() {
 
   describe('#remove', function() {
     it('removes model successfully', function(done) {
-      var user = new User({name: 'alex'});
-      user.save(function(err) {
-        user.remove(function(err) {
-          should.not.exist(err);
-          done();
-        });
+      var user = new User({id: 1, name: 'alex'});
+      var query = User.db.query;
+      User.db.query = function(statement, values, cb) {
+        User.db.query = query;
+        statement.should.equal(
+          'delete from "user" where "user"."id" = $1'
+        );
+        values.should.include(1);
+        cb(null, [], {});
+      };
+      user.remove(function(err) {
+        should.not.exist(err);
+        done();
       });
     });
 
     it('passes errors to callback', function(done) {
-      var user = new User({ name: 'alex' });
-      user.save(function(err) {
-        if (err) return done(err);
-        var query = User.db.query;
-        User.db.query = function(statement, values, callback) {
-          callback(new Error('error removing user.'));
-        };
-        user.remove(function(err) {
-          User.db.query = query;
-          should.exist(err);
-          err.should.have.property('message', 'error removing user.');
-          done();
-        });
+      var user = new User({ id: 1, name: 'alex' });
+      var query = User.db.query;
+      User.db.query = function(statement, values, callback) {
+        User.db.query = query;
+        callback(new Error('error removing user.'));
+      };
+      user.remove(function(err) {
+        should.exist(err);
+        err.should.have.property('message', 'error removing user.');
+        done();
       });
     });
   });
