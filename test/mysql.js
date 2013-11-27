@@ -232,6 +232,36 @@ describe('Model', function() {
     });
   });
 
+  describe('.removeAll', function() {
+    it('removes models successfully', function(done) {
+      var query = User.db.query;
+      User.db.query = function(statement, values, cb) {
+        statement.should.equal(
+          'delete from "user" where "user"."name" = $1'
+        );
+        cb(null, {}, {});
+      };
+      User.removeAll({ name: 'alex' }, function(err) {
+        User.db.query = query;
+        if (err) return done(err);
+        done();
+      });
+    });
+
+    it('passes errors to callback', function(done) {
+      var query = User.db.query;
+      User.db.query = function(statement, values, cb) {
+        cb(new Error("error removing all models."));
+      };
+      User.removeAll({ name: 'alex' }, function(err) {
+        User.db.query = query;
+        should.exist(err);
+        err.should.have.property('message', 'error removing all models.');
+        done();
+      });
+    });
+  });
+
   describe('#save', function() {
     it('saves new model successfully', function(done) {
       var user = new User({name: 'alex'});
