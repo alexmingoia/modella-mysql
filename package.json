@@ -13,7 +13,7 @@
     "modella",
     "plugin"
   ],
-  "version": "0.12.0",
+  "version": "0.13.0",
   "dependencies": {
     "extend": "1.2.1",
     "lingo": "0.0.5",
