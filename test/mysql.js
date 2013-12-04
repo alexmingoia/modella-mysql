@@ -132,6 +132,12 @@ describe('Model', function() {
         statement.sql.should.include(
           'from "user" where "user"."id" = $1 or "user"."name" = $2 limit $3'
         );
+        for (var key in userA.attrs) {
+          userA.attrs[User.tableName + '_' + key] = userA.attrs[key];
+        }
+        for (var key in userB.attrs) {
+          userB.attrs[User.tableName + '_' + key] = userB.attrs[key];
+        }
         callback(null, [userA.attrs, userB.attrs], userB.attrs);
       };
       User.all(
@@ -204,6 +210,9 @@ describe('Model', function() {
           'select "user".* from "user" where "user"."id" = $1'
         );
         User.db.query = query;
+        for (var key in user.attrs) {
+          user.attrs[User.tableName + '_' + key] = user.attrs[key];
+        }
         cb(null, [user.attrs], {});
       };
       User.find(user.primary(), function(err, found) {

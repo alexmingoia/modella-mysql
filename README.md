@@ -148,6 +148,19 @@ post.author(function(err, user) {
 });
 ```
 
+### Querying for relations
+
+Any model with a "has many" relationship can be included in the results for
+Model.all() and Model.get() by specifying the name of the relationship in the
+`req.query.include` parameter. Related models will be added to `model.related`.
+
+```javascript
+User.find({ id: 1, include: 'posts' }, function(err, user) {
+  console.log(user.related.posts);
+  // => will contain the post models related to this user.
+});
+```
+
 ## Events
 
 ### mysql before save
