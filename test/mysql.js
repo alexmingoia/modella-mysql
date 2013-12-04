@@ -86,7 +86,7 @@ describe('Model', function() {
       var query = Post.db.query;
       Post.db.query = function(statement, values, cb) {
         Post.db.query = query;
-        statement.should.equal(
+        statement.sql.should.equal(
           'insert into "post" ("title", "user_id") values ($1, $2)'
         );
         values.should.include("alex's post", 1);
@@ -129,7 +129,7 @@ describe('Model', function() {
       var userB = new User({id: 2, name: 'jeff'});
       var query = User.db.query;
       User.db.query = function(statement, values, callback) {
-        statement.should.include(
+        statement.sql.should.include(
           'from "user" where "user"."id" = $1 or "user"."name" = $2 limit $3'
         );
         callback(null, [userA.attrs, userB.attrs], userB.attrs);
@@ -181,7 +181,7 @@ describe('Model', function() {
       var query = User.db.query;
       User.db.query = function(statement, values, cb) {
         User.db.query = query;
-        statement.should.equal(
+        statement.sql.should.equal(
           'insert into "user" ("name") values ($1)'
         );
         cb(null, { insertId: 1 }, {});
@@ -200,7 +200,7 @@ describe('Model', function() {
       var user = new User({id: 1, name: 'alex'});
       var query = User.db.query;
       User.db.query = function(statement, values, cb) {
-        statement.should.equal(
+        statement.sql.should.equal(
           'select "user".* from "user" where "user"."id" = $1'
         );
         User.db.query = query;
@@ -236,7 +236,7 @@ describe('Model', function() {
     it('removes models successfully', function(done) {
       var query = User.db.query;
       User.db.query = function(statement, values, cb) {
-        statement.should.equal(
+        statement.sql.should.equal(
           'delete from "user" where "user"."name" = $1'
         );
         cb(null, {}, {});
@@ -299,7 +299,7 @@ describe('Model', function() {
       var query = User.db.query;
       User.db.query = function(statement, values, cb) {
         User.db.query = query;
-        statement.should.equal(
+        statement.sql.should.equal(
           'update "user" set "name" = $1 where "user"."id" = $2'
         );
         values.should.include('jeff', 1);
@@ -338,7 +338,7 @@ describe('Model', function() {
       var query = User.db.query;
       User.db.query = function(statement, values, cb) {
         User.db.query = query;
-        statement.should.equal(
+        statement.sql.should.equal(
           'delete from "user" where "user"."id" = $1'
         );
         values.should.include(1);
