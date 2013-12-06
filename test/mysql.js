@@ -183,7 +183,7 @@ describe('Model', function() {
         columnName: 'name'
       });
       User.use(require('..')(settings));
-      var user = new User({ id: 1, fullname: 'alex' });
+      var user = new User({ fullname: 'alex' });
       var query = User.db.query;
       User.db.query = function(statement, values, cb) {
         User.db.query = query;
@@ -312,7 +312,7 @@ describe('Model', function() {
           'update "user" set "name" = $1 where "user"."id" = $2'
         );
         values.should.include('jeff', 1);
-        cb(null, [], {});
+        cb(null, [user], user.attrs);
       };
       user.name('jeff');
       user.save(function(err) {
